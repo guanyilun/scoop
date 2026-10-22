@@ -1,6 +1,7 @@
 import unittest
 
-from scoop.archives.images import SURVEYS, cutout_params, data_url
+from scoop.archives.images import BACKGROUNDS, SURVEYS, cutout_params, data_url
+from scoop.science.fields import with_backgrounds
 
 try:
     from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
@@ -24,6 +25,15 @@ class CutoutTests(unittest.TestCase):
                 cutout_params(*bad)
         self.assertIn("CDS/P/2MASS/color", SURVEYS)
         self.assertEqual(data_url(b"\xff\xd8"), "data:image/jpeg;base64,/9g=")
+
+    def test_every_background_can_be_looked_at_and_old_fields_gain_new_ones(self):
+        self.assertEqual([i for i, _ in BACKGROUNDS if i not in SURVEYS], [])
+        self.assertIn("CDS/P/ACT/Planck/DR6/Compton-y", SURVEYS)
+        stored = [["CDS/P/DSS2/color", "DSS2 color"], ["CDS/P/Mellinger/color", "Mellinger"]]
+        merged = with_backgrounds(stored)
+        self.assertEqual(merged[:2], stored)  # the field's own list and order come first
+        self.assertEqual([i for i, _ in merged].count("CDS/P/DSS2/color"), 1)
+        self.assertIn(["CDS/P/ACT-PLANCK/DR4DR6/f150", "ACT+Planck f150 (DR4+DR6, quick-look)"], merged)
 
 
 @unittest.skipUnless(HAS_CHAT, "optional chat dependencies absent")

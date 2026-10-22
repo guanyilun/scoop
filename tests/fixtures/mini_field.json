@@ -758,6 +758,42 @@
   [
    "CDS/P/DSS2/color",
    "DSS2 color"
+  ],
+  [
+   "CDS/P/PanSTARRS/DR1/color-z-zg-g",
+   "Pan-STARRS DR1 color"
+  ],
+  [
+   "CDS/P/DESI-Legacy-Surveys/DR10/color",
+   "DESI Legacy Surveys DR10 color"
+  ],
+  [
+   "CDS/P/SDSS9/color",
+   "SDSS9 color"
+  ],
+  [
+   "CDS/P/2MASS/color",
+   "2MASS color (JHK)"
+  ],
+  [
+   "CDS/P/unWISE/color-W2-W1W2-W1",
+   "unWISE color (W1/W2)"
+  ],
+  [
+   "CDS/P/PLANCK/R3/HFI/color",
+   "Planck HFI color (353\u2013857 GHz)"
+  ],
+  [
+   "CDS/P/PLANCK/R3/CMB",
+   "Planck R3 CMB"
+  ],
+  [
+   "CDS/P/ACT-PLANCK/DR4DR6/f150",
+   "ACT+Planck f150 (DR4+DR6, quick-look)"
+  ],
+  [
+   "CDS/P/ACT/Planck/DR6/Compton-y",
+   "ACT+Planck Compton-y (Coulton+ 2023, quick-look)"
   ]
  ],
  "layers": [

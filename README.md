@@ -348,6 +348,11 @@ whole catalogue on the map straight from CDS, for context. They are not part of 
 the agent knows they are display-only and can show or hide them, and the data agent adds
 one to the field when it needs analysing.
 
+Backgrounds include Planck (HFI dust colour, CMB) and ACT (150 GHz, and the ACT+Planck
+Compton-y map for SZ clusters). These are CDS quick-look copies of the maps. For measurements
+on ACT data, the skill [`surveys/act`](scoop/skills/surveys/act.md) points the agent to the
+official DR6.02 maps and the needlet-ILC y maps on LAMBDA.
+
 Server options: `python -m scoop.server --help` (port, where fields, settings,
 conversations and the audit log live, and `--triage-every`). Developer mode (⚙ Settings)
 adds a Debug tab with every step of each turn.

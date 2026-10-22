@@ -91,10 +91,13 @@ def build_kernel_tools(kernel, field=None, fetch_fits=None) -> list[BaseTool]:
         """Save a square FITS cutout of any image HiPS (CDS hips2fits) into the kernel's
         working directory, with its WCS, for run_kernel to load and measure (e.g. with
         astropy.io.fits and astropy.wcs). hips is a CDS HiPS id such as CDS/P/DSS2/red,
-        CDS/P/2MASS/K or CDS/P/PLANCK/R3/HFI857; survey_inventory (via the data agent) lists those
+        CDS/P/2MASS/K, CDS/P/PLANCK/R3/HFI857, CDS/P/ACT-PLANCK/DR4DR6/f150 or
+        CDS/P/ACT/Planck/DR6/Compton-y; survey_inventory (via the data agent) lists those
         covering the field. TAN suits small fields; CAR or ZEA suit wide ones. Pixel values
         are the HiPS's own (check BUNIT); a HiPS is a resampled mosaic, so use the survey's
-        own maps for precise photometry. Returns the file path and the header's WCS."""
+        own maps for precise photometry (for ACT, the data agent's skill surveys/act names the
+        official files). Returns the file
+        path and the header's WCS."""
         try:
             params = fits_params(ra, dec, fov_deg, hips, pixels, projection)
         except ValueError as exc:

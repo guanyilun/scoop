@@ -847,8 +847,10 @@ def build_map_tools(
         survey: Literal[tuple(SURVEYS)] = "CDS/P/DSS2/color",
     ):
         """Look at the sky: a 512-pixel image of a survey (DSS2, Pan-STARRS, DESI
-        Legacy, SDSS, 2MASS infrared, unWISE mid-infrared) centered on ra+dec, a
-        row, or a name, fov_arcmin wide (north up, east left). You will see the
+        Legacy, SDSS, 2MASS infrared, unWISE mid-infrared, Planck dust and CMB, ACT
+        150 GHz, ACT+Planck Compton-y for SZ clusters) centered on ra+dec, a row, or
+        a name, fov_arcmin wide (north up, east left). The Planck and ACT images are
+        display stretches of CDS copies: fine for seeing, not for measuring. You will see the
         image after this call. Use it to describe what is there (morphology,
         artefacts, crowding); identify objects with lookup and the field's
         catalogs. The image has no map overlays.

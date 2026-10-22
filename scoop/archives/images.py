@@ -20,7 +20,27 @@ SURVEYS = {
     "CDS/P/SDSS9/color": "SDSS9 optical color",
     "CDS/P/2MASS/color": "2MASS near-infrared color (JHK)",
     "CDS/P/unWISE/color-W2-W1W2-W1": "unWISE mid-infrared color (W1/W2)",
+    "CDS/P/PLANCK/R3/HFI/color": "Planck R3 HFI color, 353/545/857 GHz (dust; ~5′ beam)",
+    "CDS/P/PLANCK/R3/CMB": "Planck R3 CMB (component-separated; ~5′ beam)",
+    # CDS quick-look copies of ACT products, resampled to HiPS; skill surveys/act has the official maps.
+    "CDS/P/ACT-PLANCK/DR4DR6/f150": "ACT DR4+DR6 and Planck 150 GHz coadd (CMB, SZ decrements, radio sources; "
+                                    "~1.4′ beam; CDS quick-look)",
+    "CDS/P/ACT/Planck/DR6/Compton-y": "ACT DR6 and Planck Compton-y (thermal SZ; the Coulton+ 2023 map, not the "
+                                      "DR6.02 NILC maps; CDS quick-look)",
 }
+# The map's background choices: SURVEYS with short names, in this order.
+BACKGROUNDS = [
+    ("CDS/P/DSS2/color", "DSS2 color"),
+    ("CDS/P/PanSTARRS/DR1/color-z-zg-g", "Pan-STARRS DR1 color"),
+    ("CDS/P/DESI-Legacy-Surveys/DR10/color", "DESI Legacy Surveys DR10 color"),
+    ("CDS/P/SDSS9/color", "SDSS9 color"),
+    ("CDS/P/2MASS/color", "2MASS color (JHK)"),
+    ("CDS/P/unWISE/color-W2-W1W2-W1", "unWISE color (W1/W2)"),
+    ("CDS/P/PLANCK/R3/HFI/color", "Planck HFI color (353–857 GHz)"),
+    ("CDS/P/PLANCK/R3/CMB", "Planck R3 CMB"),
+    ("CDS/P/ACT-PLANCK/DR4DR6/f150", "ACT+Planck f150 (DR4+DR6, quick-look)"),
+    ("CDS/P/ACT/Planck/DR6/Compton-y", "ACT+Planck Compton-y (Coulton+ 2023, quick-look)"),
+]
 SIZE = 512  # pixels; enough detail for morphology, small enough to keep cost down
 # FITS cutouts: any image HiPS by its CDS id (e.g. CDS/P/DSS2/red, CDS/P/PLANCK/R3/HFI857).
 HIPS_ID = re.compile(r"[A-Za-z0-9_.+-]{1,64}(/[A-Za-z0-9_.+-]{1,64}){1,8}")
@@ -98,5 +118,5 @@ def data_url(jpeg: bytes) -> str:
     return "data:image/jpeg;base64," + base64.b64encode(jpeg).decode("ascii")
 
 
-__all__ = ["HIPS2FITS", "PROJECTIONS", "SURVEYS", "cutout_fetcher", "cutout_params", "data_url", "fits_fetcher",
+__all__ = ["BACKGROUNDS", "HIPS2FITS", "PROJECTIONS", "SURVEYS", "cutout_fetcher", "cutout_params", "data_url", "fits_fetcher",
            "fits_params"]

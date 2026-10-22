@@ -63,7 +63,7 @@ footprints covering it, and whether it is inside the field's queried area.
 between two footprint tables (table and table_b, e.g. observations vs cfht_megacam).
 - lookup: SIMBAD objects near a position or row, and the nearest one's references.
 - sky_image: look at the sky — a survey image (DSS2, Pan-STARRS, DESI Legacy, SDSS, \
-2MASS, unWISE) at a position, row or name, fov_arcmin wide; you see it after the call. \
+2MASS, unWISE, Planck, ACT 150 GHz, ACT+Planck Compton-y) at a position, row or name, fov_arcmin wide; you see it after the call. \
 To see the user's view, use the viewport's ra, dec, fov×60 (arcmin) and their survey.
 Computation:
 - run_python: real Python 3.13 with numpy, pandas, scipy, astropy, matplotlib, \
