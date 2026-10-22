@@ -338,14 +338,20 @@ With a kernel on, the agent can also save FITS cutouts of any HiPS image survey 
 hips2fits, with their WCS; TAN, CAR and other projections) into the kernel's working
 directory for `run_kernel` to measure (`fits_cutout`). See [`scoop/runtime/kernel.py`](scoop/runtime/kernel.py).
 
-The Layers panel's **Context catalogs (CDS)** lists the catalogue HiPS covering the field
-(Gaia, 2MASS, AllWISE and many more, from the CDS MOC server); ticking one draws the
-whole catalogue on the map straight from CDS, for context. They are not part of the field:
-the agent knows they are display-only and can show or hide them, and the data agent adds
-one to the field when it needs analysing.
+**What's here** (a results tab) lists every dataset whose coverage overlaps the field, from
+the CDS MOC server: typically 400+ image surveys and 1,000+ catalogues, from radio to gamma
+rays, grouped by wavelength and searchable.
+- Image surveys: **View** shows one as the map's background.
+- Catalogues with a catalogue HiPS: **Show** draws the whole catalogue straight from CDS, for
+  context. These are display-only and not part of the field.
+- Other catalogues: **Add** asks the data agent to bring the table into the field.
+- Any dataset: **Coverage** outlines where it has data (its MOC), e.g. "is this field in DES?".
 
-Backgrounds include Planck (HFI dust colour, CMB) and ACT (150 GHz, and the ACT+Planck
-Compton-y map for SZ clusters). These are CDS quick-look copies of the maps. For measurements
+The agent sees a summary of the list and can do the same through map actions
+(`background.set`, `context.show`, `coverage.show`).
+
+The short background list in the Layers panel includes Planck (HFI dust colour, CMB) and
+ACT (150 GHz, and the ACT+Planck Compton-y map for SZ clusters). These are CDS quick-look copies of the maps. For measurements
 on ACT data, the skill [`surveys/act`](scoop/skills/surveys/act.md) points the agents to the
 official DR6.02 maps and the needlet-ILC y maps on LAMBDA.
 

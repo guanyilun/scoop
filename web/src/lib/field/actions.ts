@@ -7,6 +7,9 @@ import type { Camera, Clause, Field, Layer, MapAction, MapState, Origin, Row, St
 const DEFAULT_STYLE: Style = { color: '#ffd84d', shape: 'circle', size: 12, dash: false, hollow: false };
 // Context catalogues are background: muted colours that don't compete with the field's layers.
 const CONTEXT_COLORS = ['#8fa3bf', '#a993c9', '#83b3a6', '#c49f86'];
+// Coverage outlines are drawn over everything, so they are bright and few.
+const COVERAGE_COLORS = ['#5fd3f3', '#f2b05e', '#c792ea', '#9ece6a'];
+const HEX = /^#[0-9a-fA-F]{6}$/;
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const inSky = (ra: unknown, dec: unknown) => finite(ra) && ra >= 0 && ra < 360 && finite(dec) && dec >= -90 && dec <= 90;
 
@@ -16,6 +19,16 @@ function checkStyle(style: Partial<Style> | undefined): string | null {
   if (style.shape !== undefined && !SHAPES.includes(style.shape)) return `style.shape must be one of ${SHAPES.join(', ')}`;
   if (style.size !== undefined && !(Number.isInteger(style.size) && style.size >= 2 && style.size <= 40)) return 'style.size must be 2–40';
   return null;
+}
+
+/** A dataset covering the field (the What's here list), by id. */
+export function datasetOf(field: Field | null, id: string) {
+  return field?.datasets?.find((d) => d.id === id);
+}
+
+/** Whether an image survey can be the map's background: one of the field's or one covering it. */
+export function isBackground(field: Field | null, id: string) {
+  return !!field?.surveys.some(([survey]) => survey === id) || datasetOf(field, id)?.type === 'image';
 }
 
 export function rowsOf(field: Field | null, table: string): Row[] {
@@ -65,10 +78,17 @@ export function checkAction(action: MapAction, field: Field | null, state: MapSt
     case 'plot.hide':
       return null;
     case 'context.show':
-      if (!field?.context_catalogs?.some((c) => c.id === action.id)) return `catalogue ${action.id} is not available for this field`;
-      return action.color === undefined || /^#[0-9a-fA-F]{6}$/.test(action.color) ? null : 'color must be #rrggbb';
+      if (!datasetOf(field, action.id)?.url) return `catalogue ${action.id} is not a drawable catalogue covering this field`;
+      return action.color === undefined || HEX.test(action.color) ? null : 'color must be #rrggbb';
     case 'context.hide':
       return state.context?.some((c) => c.id === action.id) ? null : `catalogue ${action.id} is not shown`;
+    case 'coverage.show':
+      if (!datasetOf(field, action.id)) return `${action.id} is not a dataset covering this field`;
+      return action.color === undefined || HEX.test(action.color) ? null : 'color must be #rrggbb';
+    case 'coverage.hide':
+      return state.coverage?.some((c) => c.id === action.id) ? null : `coverage of ${action.id} is not shown`;
+    case 'background.set':
+      return isBackground(field, action.id) ? null : `${action.id} is not an image survey covering this field`;
     case 'plot.show': {
       const rows = rowsOf(field, action.table);
       for (const column of [action.x, action.y].filter((c): c is string => c !== undefined)) {
@@ -143,13 +163,14 @@ export function frame(rows: Row[]): Camera | null {
 }
 
 /**
- * Apply a checked action to a copy of the state. Returns the new state and,
- * for focus actions, where the camera should go.
+ * Apply a checked action to a copy of the state. Returns the new state, where the camera
+ * should go (focus actions) and the background to show (background.set).
  */
 export function applyAction(action: MapAction, field: Field | null, state: MapState, origin: Origin,
-  nextId: () => number): { state: MapState; camera: Camera | null } {
+  nextId: () => number): { state: MapState; camera: Camera | null; survey: string | null } {
   const next = clone(state);
   let camera: Camera | null = null;
+  let survey: string | null = null;
   switch (action.type) {
     case 'layer.add': {
       const layer: Layer = { id: action.id, table: action.table, filter: action.filter ?? [],
@@ -199,15 +220,24 @@ export function applyAction(action: MapAction, field: Field | null, state: MapSt
     }
     case 'plot.hide': next.plot = null; break;
     case 'context.show': {
-      const catalog = field!.context_catalogs!.find((c) => c.id === action.id)!;
+      const catalog = datasetOf(field, action.id)!;
       const shown = (next.context ?? []).filter((c) => c.id !== action.id);
       const color = action.color ?? CONTEXT_COLORS[shown.length % CONTEXT_COLORS.length];
-      next.context = [...shown, { id: catalog.id, title: catalog.title, url: catalog.url, color, origin }];
+      next.context = [...shown, { id: catalog.id, title: catalog.title, url: catalog.url!, color, origin }];
       break;
     }
     case 'context.hide': next.context = (next.context ?? []).filter((c) => c.id !== action.id); break;
+    case 'coverage.show': {
+      const dataset = datasetOf(field, action.id)!;
+      const shown = (next.coverage ?? []).filter((c) => c.id !== action.id);
+      const color = action.color ?? COVERAGE_COLORS[shown.length % COVERAGE_COLORS.length];
+      next.coverage = [...shown, { id: dataset.id, title: dataset.title, color, origin }];
+      break;
+    }
+    case 'coverage.hide': next.coverage = (next.coverage ?? []).filter((c) => c.id !== action.id); break;
+    case 'background.set': survey = action.id; break;
   }
-  return { state: next, camera };
+  return { state: next, camera, survey };
 }
 
 // Svelte $state proxies cannot be structuredClone'd; map state is plain JSON.

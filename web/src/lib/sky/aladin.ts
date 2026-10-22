@@ -2,7 +2,7 @@
 import { separation } from '../field/filter';
 import type { RowRef } from '../field/types';
 
-export type AladinLayer = AladinCatalog | AladinOverlay;
+export type AladinLayer = AladinCatalog | AladinOverlay | AladinMOC;
 export interface AladinViewer {
   getRaDec(): [number, number];
   getFov(): [number, number];
@@ -11,6 +11,7 @@ export interface AladinViewer {
   setBaseImageLayer(id: string): void;
   addCatalog(catalog: AladinCatalog): void;
   addOverlay(overlay: AladinOverlay): void;
+  addMOC?(moc: AladinMOC): void;
   removeOverlay(layer: AladinLayer): void;
   on(event: 'positionChanged' | 'zoomChanged' | 'objectClicked' | 'footprintClicked' | 'click', callback: (value: unknown) => void): void;
   pix2world?(x: number, y: number): [number, number] | undefined;
@@ -18,12 +19,15 @@ export interface AladinViewer {
 export type AladinSource = object;
 export interface AladinCatalog { addSources(sources: AladinSource[]): void; show(): void; hide(): void }
 export interface AladinOverlay { add(shape: unknown): void; show(): void; hide(): void }
+// A coverage map (MOC): where a dataset has data, as HEALPix cells.
+export interface AladinMOC { show(): void; hide(): void }
 export interface AladinAPI {
   init: Promise<unknown>;
   aladin(container: string, options: Record<string, unknown>): AladinViewer;
   catalog(options: Record<string, unknown>): AladinCatalog;
   // A progressive catalogue served as a HiPS (CDS): drawn tile by tile as the view moves.
   catalogHiPS?(url: string, options: Record<string, unknown>): AladinCatalog;
+  MOCFromURL?(url: string, options: Record<string, unknown>): AladinMOC;
   source(ra: number, dec: number, data: Record<string, unknown>): AladinSource;
   graphicOverlay(options: Record<string, unknown>): AladinOverlay;
   circle(ra: number, dec: number, radius: number, options?: Record<string, unknown>): unknown;

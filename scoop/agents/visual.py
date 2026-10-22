@@ -171,14 +171,15 @@ class PlotHide(Strict):
     type: Literal["plot.hide"]
 
 
-HipsId = Annotated[str, Field(pattern=r"^[A-Za-z0-9_.+-]{1,64}(/[A-Za-z0-9_.+-]{1,64}){1,8}$",
-                              description="a catalogue HiPS id from contextCatalogs.available, e.g. CDS/I/355/gaiadr3")]
+HipsId = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}(/[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}){1,8}$",
+                              description="a dataset id from datasetsHere, e.g. CDS/I/355/gaiadr3")]
+Color = Annotated[str | None, Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$", description="#rrggbb")]
 
 
 class ContextShow(Strict):
     type: Literal["context.show"]
     id: HipsId
-    color: str | None = Field(default=None, pattern=r"^#[0-9a-fA-F]{6}$", description="#rrggbb")
+    color: Color = None
 
 
 class ContextHide(Strict):
@@ -186,9 +187,26 @@ class ContextHide(Strict):
     id: HipsId
 
 
+class CoverageShow(Strict):
+    type: Literal["coverage.show"]
+    id: HipsId
+    color: Color = None
+
+
+class CoverageHide(Strict):
+    type: Literal["coverage.hide"]
+    id: HipsId
+
+
+class BackgroundSet(Strict):
+    type: Literal["background.set"]
+    id: HipsId
+
+
 MapAction = Annotated[
     LayerAdd | LayerUpdate | LayerRemove | Focus | FocusRows | Highlight | Annotate
-    | ClearAnnotations | Select | PlotShow | PlotHide | ContextShow | ContextHide,
+    | ClearAnnotations | Select | PlotShow | PlotHide | ContextShow | ContextHide
+    | CoverageShow | CoverageHide | BackgroundSet,
     Field(discriminator="type"),
 ]
 
@@ -447,9 +465,11 @@ def build_map_tools(
         histogram (x only) of a table next to the map, using the same layers and
         colors (e.g. CMD: table gaia, x bp_rp, y G, invert_y true; PM: pmra vs
         pmdec); the user can drag a box there to make a layer. context.show / context.hide
-        draw a whole catalogue from CDS (catalogue HiPS, ids from contextCatalogs.available)
-        for context: display only, its rows are not in the field and no tool can count them;
-        to analyse one, ask the data agent to add it. Angles are ICRS degrees. Use describe_field
+        draw a whole catalogue from CDS (a catalogue HiPS from datasetsHere) for context:
+        display only, its rows are not in the field and no tool can count them; to analyse
+        one, ask the data agent to add it. coverage.show / coverage.hide outline where any
+        dataset in datasetsHere has data; background.set shows an image survey from
+        datasetsHere as the map's background. Angles are ICRS degrees. Use describe_field
         for tables, columns and ids. Nothing is displayed until the browser
         acknowledges it on a later turn.
         """

@@ -23,6 +23,8 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Too
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.errors import GraphRecursionError
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.gzip import GZipMiddleware
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
@@ -57,7 +59,7 @@ MAX_CONSECUTIVE_FAILURES = 4
 
 
 MODEL_LIST_TTL = 600.0  # seconds an endpoint's model list is reused
-CONTEXT_CATALOG_TTL = 3600.0  # seconds a region's catalogue HiPS list is reused
+DATASETS_TTL = 3600.0  # seconds a region's dataset list is reused
 
 
 def _bad_request(message: str) -> JSONResponse:
@@ -198,7 +200,7 @@ def create_app(
     make_kernel: Callable[[Any], Any] | None = None,
     list_kernels: Callable[[], list[dict]] | None = None,
     list_models: Callable[[str, str | None], Any] | None = None,
-    list_context_catalogs: Callable[[dict], Any] | None = None,
+    list_datasets: Callable[[dict], Any] | None = None,
     triage_dir: Path | None = None,
     triage_every_s: float = 0,
 ) -> Starlette:
@@ -210,7 +212,7 @@ def create_app(
     ``kernel`` an AnalysisKernel in the user's own environment (off unless given, or made
     from settings by ``make_kernel``; ``list_kernels`` names the kernels Settings may choose);
     ``list_models`` an async ``(base_url, api_key) -> models`` for the Settings model search;
-    ``list_context_catalogs`` an async ``(region) -> catalogue HiPS`` for the map's context layers;
+    ``list_datasets`` an async ``(region) -> {datasets: [...]}`` for the What's here tab;
     ``fetch_fits`` (scoop.archives.images.fits_fetcher) gives run_kernel's fits_cutout;
     ``figure_store`` keeps tool images so the browser gets URLs instead of the images;
     ``trace_store`` keeps developer traces of each turn for the Debug tab. With
@@ -298,12 +300,13 @@ def create_app(
                              "kernels": list_kernels() if list_kernels else [], "problems": problems})
 
     model_lists: dict[tuple[str, bool], tuple[float, list]] = {}  # (endpoint, with key) -> (time, models)
-    context_catalogs: dict[tuple, tuple[float, list]] = {}  # rounded region -> (time, catalogue HiPS)
+    region_datasets: dict[tuple, tuple[float, list]] = {}  # rounded region -> (time, datasets)
 
-    async def get_context_catalogs(request: Request) -> JSONResponse:
-        """Catalogue HiPS covering a region (?ra=&dec=&radius= in degrees), for context layers."""
-        if list_context_catalogs is None:
-            return JSONResponse({"catalogs": []})
+    async def get_datasets(request: Request) -> JSONResponse:
+        """Every dataset covering a region (?ra=&dec=&radius= in degrees): image surveys,
+        catalogues and cubes, for the What's here tab, the background and context layers."""
+        if list_datasets is None:
+            return JSONResponse({"datasets": []})
         try:
             region = {k: round(float(request.query_params[q]), 2)
                       for k, q in (("ra", "ra"), ("dec", "dec"), ("radius_deg", "radius"))}
@@ -312,14 +315,15 @@ def create_app(
         if not (0 <= region["ra"] < 360 and -90 <= region["dec"] <= 90 and 0 < region["radius_deg"] <= 30):
             return _bad_request("ra must be in [0, 360), dec in [-90, 90] and radius in (0, 30] degrees")
         key = tuple(region.values())
-        cached = context_catalogs.get(key)
-        if cached is None or time.monotonic() - cached[0] > CONTEXT_CATALOG_TTL:
+        cached = region_datasets.get(key)
+        if cached is None or time.monotonic() - cached[0] > DATASETS_TTL:
             try:
-                cached = context_catalogs[key] = (time.monotonic(), await list_context_catalogs(region))
-            except Exception as exc:  # the MOC server is down: the map works without context layers
-                return JSONResponse({"error": f"Could not list catalogue HiPS ({type(exc).__name__}).",
-                                     "catalogs": []}, status_code=502)
-        return JSONResponse({"catalogs": cached[1]})
+                found = await list_datasets(region)
+                cached = region_datasets[key] = (time.monotonic(), found["datasets"])
+            except Exception as exc:  # the MOC server is down: the map works without the list
+                return JSONResponse({"error": f"Could not list the datasets here ({type(exc).__name__}).",
+                                     "datasets": []}, status_code=502)
+        return JSONResponse({"datasets": cached[1]})
 
     async def get_models(request: Request) -> JSONResponse:
         """The models an endpoint offers: the one given (?base_url=), else the saved one."""
@@ -756,7 +760,8 @@ def create_app(
             if task is not None:
                 task.cancel()
 
-    return Starlette(lifespan=lifespan, routes=[
+    # Field and dataset lists are large JSON; the chat's event stream is never compressed.
+    return Starlette(lifespan=lifespan, middleware=[Middleware(GZipMiddleware, minimum_size=1000)], routes=[
         Route("/", root),
         Route("/api/triage", list_triage),
         Route("/api/triage/{name}", get_triage),
@@ -764,7 +769,7 @@ def create_app(
         Route("/api/settings", get_settings),
         Route("/api/settings", put_settings, methods=["POST"]),
         Route("/api/models", get_models),
-        Route("/api/context-catalogs", get_context_catalogs),
+        Route("/api/datasets", get_datasets),
         Route("/api/budget/{thread}", get_budget),
         Route("/api/budget/{thread}", put_budget, methods=["POST"]),
         Route("/api/fields", list_fields),

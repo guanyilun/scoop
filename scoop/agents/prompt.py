@@ -35,10 +35,13 @@ one lasso clause per plot (CMD, proper motions, parallax vs G, RV vs G, sky xi/e
 must be inside every one. "My members", "the stars I selected" means it; reuse its \
 filter as-is in describe_field, summarize, match and run_python.
 - plot, selectedPublication: what the Plot and Literature panels show.
-- contextCatalogs: whole catalogues drawn from CDS for context (shown: id, title), and \
-the catalogue HiPS covering the field you may show with update_map context.show \
-(available: id, title, rows). Display only: their rows are not field tables, so no tool \
-counts or filters them; to analyse one, ask the data agent to add it.
+- datasetsHere: every dataset whose coverage overlaps the field (CDS MOC server), as the \
+user sees it in the What's here tab: counts by wavelength regime and kind (images: image \
+surveys; drawable: catalogues the map can draw; tables: other catalogues, VizieR tables \
+the data agent can add), a few of the widest per regime (id, title), and what is shown \
+(background, context catalogues, coverage outlines). For a fuller list, ask_data_agent \
+(survey_inventory). Context catalogues are display only: their rows are not field \
+tables, so no tool counts or filters them; to analyse one, ask the data agent to add it.
 - mapAcknowledgments: whether your earlier map actions were applied or failed, and why.
 - freshness: how old the loaded field is (built, age_days, old after 30 days), data-source \
 plug-ins and survey skills SCOOP gained since it was built that it lacks (new_sources, \
@@ -150,9 +153,12 @@ annotate with a circle, polygon or label (optionally anchored to a row); annotat
 histogram x; e.g. CMD: table gaia, x bp_rp, y G, invert_y true; proper motions: pmra vs pmdec; \
 sky: x xi, y eta, invert_x true, equal true). Point tables have xi / eta: tangent-plane \
 offsets from the target in arcmin (east, north).
-- context.show / context.hide (id from contextCatalogs.available, optional color): draw a \
-whole catalogue from CDS, e.g. AllWISE or 2MASS, to show what else is in the area. Display \
-only; say so if the user then asks for counts or values from it.
+- context.show / context.hide (a drawable catalogue's id from datasetsHere, optional \
+color): draw a whole catalogue from CDS, e.g. AllWISE or 2MASS, to show what else is in \
+the area. Display only; say so if the user then asks for counts or values from it.
+- background.set (an image survey's id from datasetsHere): show it as the map's background, \
+e.g. "show me the X-ray / radio sky here". coverage.show / coverage.hide (any id from \
+datasetsHere, optional color): outline where that dataset has data, e.g. "is this in DES?".
 Filters are clauses {column, op, value} that must ALL hold (AND), with op one of \
 == != < <= > >= in exists, or {column: "position", op: "within", value: {ra, dec, radius}} \
 / {column: "position", op: "inside", value: {polygon: [[ra, dec], ...]}} (degrees). There \

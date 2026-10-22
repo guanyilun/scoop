@@ -1361,34 +1361,76 @@ body.resizing-y * {
   font-size: 12px;
   margin: 4px 0;
 }
-/* Context catalogues (catalogue HiPS from CDS) in the layers panel. */
-.context-catalogs summary {
-  cursor: pointer;
-  margin: 4px 0;
+/* What's here: every dataset covering the field (CDS MOC server), in the results drawer. */
+.whats-here {
+  padding: 8px 12px;
 }
-.context-catalogs p {
-  font-size: 11px;
-  margin: 2px 0 6px;
-}
-.context-catalogs label.check {
+.whats-here-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   align-items: center;
+  margin-bottom: 6px;
+}
+.whats-here-bar input {
+  flex: 1 1 220px;
+  max-width: 340px;
+}
+.chip {
+  font-size: 11px;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+.chip small {
+  color: var(--muted);
+}
+.whats-here button[aria-pressed='true'] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.whats-here details summary {
+  cursor: pointer;
+  margin: 8px 0 4px;
+}
+.dataset-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.dataset {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.dataset-name {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.dataset-name strong {
   font-size: 12px;
-  padding: 2px 0;
+  font-weight: 500;
 }
-.context-catalogs label.check input {
-  width: auto;
-}
-.context-catalogs .rows {
-  margin-left: auto;
+.dataset-name small {
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.context-catalogs .swatch {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+.dataset-actions {
+  display: flex;
+  gap: 4px;
   flex: none;
+}
+.dataset-actions .swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border: 0;
+  border-radius: 50%;
+  margin-right: 4px;
 }
 .markdown .math {
   overflow-x: auto;
