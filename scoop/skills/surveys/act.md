@@ -5,7 +5,8 @@ description: Atacama Cosmology Telescope (ACT) maps and the ACT+Planck Compton-y
   copy to look at (CDS HiPS) and which to measure (the official LAMBDA files).
 used_by: [imaging, sz, data agent]
 status: draft
-sources_checked: 2026-10-22 (CDS MOC server records; LAMBDA DR6.02 product pages)
+sources_checked: 2026-10-22 (CDS MOC server records; LAMBDA DR6.02 product pages;
+  ACTCollaboration/DR6_Notebooks, last pushed 2025-03-27; NERSC y-map directory)
 ---
 
 # ACT maps and Compton-y
@@ -32,7 +33,34 @@ sources_checked: 2026-10-22 (CDS MOC server records; LAMBDA DR6.02 product pages
     There are 61 Compton-y variants: no deprojection, or CIB deprojected (`cib`, and optionally
     `cibdBeta` and/or `cibdT`) for beta 1.0–1.8 and T 10.7 or 24.0 K. Masks are `footprint_mask.fits`,
     `ilc_inpaint_mask.fits` and `ilc_subtracted_mask.fits`. All maps have a 1.6′ Gaussian beam.
-  - The older Coulton+ 2023 y map: `https://lambda.gsfc.nasa.gov/product/act/actadv_dr6_compton_maps_get.html`.
+  - The older Coulton+ 2023 y map: `https://lambda.gsfc.nasa.gov/product/act/actadv_dr6_compton_maps_get.html`
+    (`ilc_actplanck_ymap.fits`, `ilc_beam.txt`, and the mask `wide_mask_GAL070_apod_1.50_deg_wExtended.fits`).
+    The same map, its CIB-deprojected versions (`deprojections/`) and masks (`masks/`) are also at NERSC:
+    `https://portal.nersc.gov/project/act/dr6_nilc/ymaps_20230220/`.
+- **ACT's own recipes**: the DR6 notebooks, `https://github.com/ACTCollaboration/DR6_Notebooks`
+  (Colab-ready; written by the collaboration). They show how ACT itself handles these files:
+  - `ACT_DR6_maps.ipynb`: loading coadds with pixell, cutting regions, Q/U to E/B, HEALPix conversion.
+  - `ACT_DR6_ymap_stacking.ipynb`: cutouts and stacks of clusters on the y map, with radial profiles.
+  - `ACT_DR6_ymap_CIB.ipynb`: how CIB deprojection changes a y × LSS cross-spectrum (NaMaster).
+  - `ACT_DR6_depth1_maps.ipynb`: single-observation (depth-1) maps for transients: flux = rho/kappa in mJy,
+    S/N = rho/√kappa, source finding, and matching to the ACT catalogue.
+  - Lensing and power-spectrum and likelihood notebooks, for those analyses.
+  Their downloads come from `phy-act1.princeton.edu`, which ACT says is for demonstrations only; use LAMBDA or
+  NERSC for results. Cite the papers the README lists and acknowledge the repository.
+
+## Recipes (from the DR6 notebooks; run them in run_kernel)
+- **Read only the region you need**: `enmap.read_map(path, box=[[dec0, ra0], [dec1, ra1]])` (radians, via
+  `pixell.utils.degree`). A full coadd is (3, 10320, 43200), with I, Q and U in µK at 0.5′ pixels, and needs more
+  than 13 GB of RAM to load whole.
+- **Stack on positions** with `reproject.thumbnails(map, coords=np.deg2rad([dec, ra]).T, r=radius)`. It
+  reprojects each cutout about its own centre, removing CAR's cos(dec) stretching, which a plain `submap` stack
+  keeps. Drop objects within about 2° of the mask edge first. Expect noise to fall as about 1/√N.
+- **Physical-size stacks**: scale each cutout's radius with `astropy.cosmology` (e.g. 10 Mpc at each redshift), then
+  resample the cutouts to a common shape before averaging.
+- **Beam**: the y maps have a 1.6′ Gaussian beam (FWHM). Compare a stacked profile with it before calling
+  something extended.
+- **CAR, not HEALPix, for analysis**: the HEALPix versions (nside 8192) are reprojections, convenient for
+  footprints and masks.
 
 ## Gotchas
 - The CDS copies are resampled twice: once onto HEALPix tiles, and again by hips2fits's
@@ -47,7 +75,11 @@ sources_checked: 2026-10-22 (CDS MOC server records; LAMBDA DR6.02 product pages
 - LAMBDA says the NILC y maps carry a lot of residual CIB. Compare the plain ILC with
   CIB-deprojected maps (varying beta, then adding dBeta, then dT) before trusting an
   SZ signal. Deprojecting costs resolution: lmax is about 11000 with 2 deprojections
-  and about 4000 with 3.
+  and about 4000 with 3. ACT's CIB notebook finds that a single deprojection depends on the
+  assumed (beta, T): deprojecting at (1.4, 10.7 K) visibly lowers y × DES lensing, while (1.2, 24 K)
+  barely changes it. It recommends the first-moment (dBeta or dT) maps, which are stable to that
+  choice. Other contaminants that correlate with large-scale structure: unmasked radio sources,
+  ISW and CO lines.
 - Maps follow the IAU polarization convention (`POLCCONV='IAU'`).
 
 ## Default decisions and what to tell the user
@@ -59,5 +91,6 @@ sources_checked: 2026-10-22 (CDS MOC server records; LAMBDA DR6.02 product pages
 | The user has internal ACT/SO maps | Their paths | Use those, and record the version they name. |
 
 ## Not yet verified
-- Downloading a full LAMBDA file and cutting it with pixell inside SCOOP's kernel.
+- Running these recipes in SCOOP's kernel (pixell installed there, a LAMBDA download cached, a box read).
+  The box read itself is how ACT's maps notebook does it.
 - ACT's preferred acknowledgement text.

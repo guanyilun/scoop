@@ -169,7 +169,7 @@ def _json(obj) -> str:
 
 
 def _add_index_row(index: Path, name: str, description: str) -> bool:
-    """List a draft in the index's surveys table (the dataset scout's format)."""
+    """List a draft in the index's surveys table."""
     if not index.exists():
         return False
     text = index.read_text(encoding="utf-8")
@@ -240,8 +240,7 @@ def build_data_tools(*, field: dict, store_rows, added: list[str], skills_dir: P
         tool_call_id: Annotated[str, InjectedToolCallId],
     ):
         """Save what you verified about a survey as a draft skill for a person to review
-        (scoop/skills/surveys/<name>.md, status: draft, listed in the index, as the dataset scout
-        writes them): services and ids, tables, key columns, cuts that worked, row counts
+        (scoop/skills/surveys/<name>.md, status: draft, listed in the index): services and ids, tables, key columns, cuts that worked, row counts
         and timings, gotchas, and what to tell the user. Only facts from tool results in
         this hand-off; no citations you didn't look up. body is markdown in the skill
         template's sections (What's here, Coverage check, How to query, Gotchas, Default
