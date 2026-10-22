@@ -16,6 +16,7 @@ from typing import Annotated
 from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 
+from .skills import with_skills
 from .subagent import attach, run_subagent
 from .tools import publish_result
 
@@ -60,6 +61,11 @@ It shows the members as the layer "Members (SCOOP)" (agent:members:<table>), wit
 CMD region on the CMD, and leaves the user's Members alone.
 - describe_field, summarize: the field's tables, columns and statistics over filters \
 (read-only).
+- read_skill: SCOOP's skills. astrometry/proper_motions is yours: where proper motions \
+are published, the effects that matter at µas/yr (solar reflex, perspective, secular \
+aberration, which Gaia does not correct), and how to turn precision into a verdict per \
+goal. Read it before a feasibility verdict or when comparing measurements; \
+surveys/gaia and surveys/mast_hst_jwst cover the data.
 - ads_search, ads_paper, ads_citations: the literature (for newer measurements and \
 priors); web_fetch, when available, for a paper's tables.
 
@@ -145,7 +151,7 @@ def build_pm_handoff_tool(*, model, field, tools, layers=()):
                              "target": {k: field["target"].get(k) for k in ("name", "ra", "dec", "kind")},
                              "tables": {n: len(t["rows"]) for n, t in field["tables"].items()}},
                    "user_layers": _user_layers(layers)}
-        result = await run_subagent(model, list(tools), PM_AGENT_PROMPT,
+        result = await run_subagent(model, list(tools), with_skills(PM_AGENT_PROMPT),
                                     f"{request}\n<context>{json.dumps(context, default=str)}</context>",
                                     max_steps=MAX_STEPS, name="proper-motion agent")
         summary = f"Proper-motion agent report:\n{result.report or '(no report)'}"

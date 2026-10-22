@@ -3,8 +3,8 @@ name: proper_motions
 description: Where to find existing proper motions, and how to judge whether
   new, better-than-Gaia proper motions could be measured. Load for any
   question about proper motions, tangential velocities or orbits of stars,
-  star clusters, dwarf galaxies or other nearby structures. Used by the
-  proper-motion tools (scoop/agents/pm_tools.py).
+  star clusters, dwarf galaxies or other nearby structures. The proper-motion
+  agent's tools (scoop/agents/pm_tools.py) compute the numbers.
 used_by: [proper-motion agent, astrometry, literature]
 depends_on: [gaia, mast_hst_jwst, stsci_proposals]
 status: draft
@@ -67,12 +67,10 @@ How to use them:
 
 ## What size of proper motion to expect, and what precision a measurement needs
 
-Use `smoke_tests/pm_expectations.py` for every number here (it propagates the
-LVDB's asymmetric errors by Monte Carlo); never estimate these in your head.
-
-```bash
-python smoke_tests/pm_expectations.py --lvdb-key draco_1 --n-stars 200 --star-error 0.03 --floor 0.005
-```
+Use the `pm_expectations` tool for every number here (it propagates the LVDB's
+asymmetric errors by Monte Carlo); never estimate these in your head. From a
+checkout, `python smoke_tests/pm_expectations.py --lvdb-key draco_1 --n-stars 200
+--star-error 0.03 --floor 0.005` gives the same numbers.
 
 **Conversions.** μ [mas/yr] = v [km/s] / (4.74 d [kpc]).
 
@@ -221,6 +219,11 @@ Combine the image inventory (mast_hst_jwst skill) with Gaia:
   errors are large. Don't present them as more precise than HST+Gaia results
   without checking the errors.
 - Units: LVDB and Gaia give μα* (= μα cos δ) in mas/yr.
+- Gaia-based measurements of one object share stars and Gaia's systematics, so
+  their agreement is not independent confirmation; a chi-squared across them
+  that assumes independence overstates the agreement.
+- Ground-based epochs (e.g. CFHT MegaPrime) have far larger position errors than
+  HST/JWST; never give every epoch one error.
 
 ## Not yet verified
 

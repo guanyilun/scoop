@@ -138,7 +138,7 @@ def _date(value: str | None) -> date | None:
 
 
 def _aliases(path: Path, name: str) -> tuple[str, ...]:
-    stem = path.stem.removesuffix(".skill")  # cost-checking.skill.md
+    stem = path.stem.removesuffix(".skill")  # e.g. a *.skill.md file
     tokens = {token for part in (stem, name) for token in re.split(r"[_\-\s.]+", part.lower())}
     return tuple(sorted(token for token in tokens if token and token not in GENERIC and len(token) > 1))
 

@@ -128,7 +128,9 @@ class ServerTests(unittest.TestCase):
         # The model sees the browser context, delimited as data, under the workspace prompt.
         self.assertIn("<workspace_context>", model.calls[0][-1].content)
         from scoop.agents.prompt import WORKSPACE_PROMPT
-        self.assertEqual(model.calls[0][0].content, WORKSPACE_PROMPT)
+        from scoop.agents.skills import with_skills
+        self.assertEqual(model.calls[0][0].content, with_skills(WORKSPACE_PROMPT))
+        self.assertIn("read_skill", [t.name for t in model.tools])
 
     def test_unknown_row_id_is_a_failed_tool_call(self):
         highlight = {"type": "highlight", "table": "gaia", "ids": ["invented"]}

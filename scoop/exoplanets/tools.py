@@ -6,7 +6,7 @@ arguments against the schema and turns the result into JSON text for the model. 
 provenance format of evaluation/checks.py (kind, archive, native_id, ra, dec,
 query, access_url, retrieved_at), so the team's checks can run on it.
 
-Services (checked live on 2026-10-19, see scoop/skills/surveys/nasa_exoplanet_archive.md):
+Services (checked live on 2026-10-19):
   - Sesame (CDS) name resolver, XML output
   - NASA Exoplanet Archive TAP, table pscomppars (one row per confirmed planet)
 

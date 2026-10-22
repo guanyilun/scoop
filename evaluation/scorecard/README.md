@@ -1,9 +1,9 @@
-# Skill: Metrics Scorecard
+# Metrics scorecard
 
 ## Purpose
 Compute and review core pipeline KPIs weekly to control quality, cost, safety, and reliability.
 
-This skill is the operational companion to the scorecard script in [evaluation/scorecard/metrics_scorecard.py](../../evaluation/scorecard/metrics_scorecard.py).
+This is the operational companion to the scorecard script, [metrics_scorecard.py](metrics_scorecard.py).
 
 ## When to use
 - After each run batch/day/week.
