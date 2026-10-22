@@ -3,6 +3,7 @@ import { applyAction, checkAction, circleCounts, circleLabel, clone, describeSty
 import type { Camera, Field, MapAction, MapState, Origin, Row, RowRef } from '../field/types';
 import type { ADSPayload, ActionAcknowledgment, Backend, BudgetView, ChatEvent, JobView, SourceInfo } from '../api/client';
 import { contextSummary } from '../chat/activity';
+import { datasetsSummary } from '../field/datasets';
 import { deleteConversation, loadConversations, saveConversation, titleOf, type Conversation } from '../chat/history';
 import { figuresOf } from '../chat/figures';
 import type { Trace } from '../chat/trace';
@@ -24,7 +25,7 @@ export function adsPublications(payload: ADSPayload): Publication[] {
   }));
 }
 
-const emptyMap = (): MapState => ({ layers: [], highlight: null, annotations: [], selection: null, plot: null, context: [] });
+const emptyMap = (): MapState => ({ layers: [], highlight: null, annotations: [], selection: null, plot: null, context: [], coverage: [] });
 const MAX_UNDO = 50;
 
 // Call once per page/component tree. No module-level mutable state (SSR safe).
@@ -44,6 +45,8 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
   let fieldStatus = $state('No field loaded.');
   let map = $state<MapState>(emptyMap());
   let survey = $state(DEFAULT_SURVEY);
+  // The What's here list for the loaded field: loading, ready, or failed (the MOC server down).
+  let datasetsStatus = $state<'none' | 'loading' | 'ready' | 'failed'>('none');
   let viewport = $state<SkyViewport>({ ...initialViewport });
   // Where the renderer should move next; the sequence makes repeats distinct.
   let camera = $state<(Camera & { sequence: number }) | null>(null);
@@ -151,6 +154,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
     if (!req) return false;
     let next = map;
     let target: Camera | null = null;
+    let background: string | null = null;
     if (!error) {
       for (const action of req.actions) {
         const problem = checkAction(action, field, next);
@@ -158,6 +162,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
         const result = applyAction(action, field, next, req.origin, () => ++sequence);
         next = result.state;
         target = result.camera ?? target;
+        background = result.survey ?? background;
       }
     }
     req.status = error ? 'failed' : 'applied';
@@ -166,6 +171,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
       undoStack = [...undoStack.slice(-MAX_UNDO + 1), clone(map)];
       map = next;
       if (target) moveCamera(target);
+      if (background) survey = background;
     }
     report(req.commandId, req.status, error);
     if (turn?.open.has(seq) && req.status === 'applied') turn.changed = true;
@@ -185,22 +191,23 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
       fieldStatus = `${loaded.target.name} · ${loaded.n_rhalf} r_half`;
       moveCamera({ ra: loaded.target.ra, dec: loaded.target.dec, fov: loaded.fov });
       report(commandId, 'applied');
-      void loadContextCatalogs(loaded);
+      void loadDatasets(loaded);
     } catch (error) {
       fieldStatus = `Could not load ${key}: ${errorText(error)}`;
       report(commandId, 'failed', fieldStatus);
     }
   }
 
-  /** The catalogue HiPS covering a field, for context layers. Never holds up the field: without
-   *  them (the MOC server down, an old server) the map works as before. */
-  async function loadContextCatalogs(loaded: Field) {
-    if (!backend?.listContextCatalogs) return;
+  /** Every dataset covering a field, for What's here. Never holds up the field: without it
+   *  (the MOC server down, an old server) the map works as before. */
+  async function loadDatasets(loaded: Field) {
+    if (!backend?.listDatasets) return;
+    datasetsStatus = 'loading';
     try {
       const radius = Math.min(30, Math.max(0.05, loaded.fov / 2));
-      const catalogs = await backend.listContextCatalogs(loaded.target.ra, loaded.target.dec, radius);
-      if (field?.key === loaded.key) field.context_catalogs = catalogs;
-    } catch { /* no context layers for this field */ }
+      const datasets = await backend.listDatasets(loaded.target.ra, loaded.target.dec, radius);
+      if (field?.key === loaded.key) { field.datasets = datasets; datasetsStatus = 'ready'; }
+    } catch { if (field?.key === loaded.key) datasetsStatus = 'failed'; }
   }
 
   /** Reload the field after it gained or lost tables: keep the map as it is, add the new
@@ -212,7 +219,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
       const kept = map.layers.filter((layer) => !layer.table || layer.table in loaded.tables);
       const known = new Set(kept.map((layer) => layer.id));
       const counts = new Map(loaded.layers.map((layer) => [layer.id, layer.count]));
-      loaded.context_catalogs = field.context_catalogs;  // same place, same catalogues
+      loaded.datasets = field.datasets;  // same place, same datasets
       field = loaded;
       map = { ...map, layers: [...kept.map((layer) => ({ ...layer, count: counts.get(layer.id) ?? layer.count })),
         ...clone(loaded.layers.filter((layer) => !known.has(layer.id)))] };
@@ -289,9 +296,10 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
               filter: [{ column: 'position', op: 'inside', value: { polygon: a.points } }] }),
       selection: row && Object.fromEntries(Object.entries(row).filter(([k]) => !['polygon', 's_region', '_links'].includes(k))),
       plot: map.plot ?? null,
-      contextCatalogs: {
-        shown: (map.context ?? []).map(({ id, title }) => ({ id, title })),
-        available: (field?.context_catalogs ?? []).slice(0, 20).map(({ id, title, rows }) => ({ id, title, rows })),
+      datasetsHere: {
+        ...datasetsSummary(field?.datasets ?? []),
+        shown: { background: survey, context: (map.context ?? []).map(({ id, title }) => ({ id, title })),
+                 coverage: (map.coverage ?? []).map(({ id, title }) => ({ id, title })) },
       },
       ...(paper ? { selectedPublication: { id: paper.id, title: paper.title } } : {}),
       mapAcknowledgments: unreported.splice(0)
@@ -401,6 +409,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
     get map() { return map; },
     get layers() { return map.layers; },
     get survey() { return survey; },
+    get datasetsStatus() { return datasetsStatus; },
     get camera() { return camera; },
     get viewerPhase() { return viewerPhase; },
     set viewerPhase(value: 'loading' | 'ready' | 'error') { viewerPhase = value; },

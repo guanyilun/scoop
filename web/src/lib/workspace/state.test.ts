@@ -101,45 +101,67 @@ describe('field workspace', () => {
     expect(workspace.canUndo).toBe(false);
   });
 
-  it('offers the catalogue HiPS covering the field as context layers the agent knows are display-only', async () => {
+  const DATASETS = [
+    { id: 'CDS/I/355/gaiadr3', title: 'Gaia DR3', regime: 'Optical', type: 'catalog', sky_fraction: 1, rows: 1.8e9,
+      url: 'https://hipscat.example/gaiadr3', pixel_arcsec: null },
+    { id: 'CDS/II/328/allwise', title: 'AllWISE', regime: 'Infrared', type: 'catalog', sky_fraction: 1, rows: 7.5e8,
+      url: 'https://hipscat.example/allwise', pixel_arcsec: null },
+    { id: 'CDS/P/eROSITA/DR1/rate/024-230keV', title: 'eROSITA DR1', regime: 'X-ray', type: 'image', sky_fraction: 0.5,
+      rows: null, url: 'https://alasky.example/erosita', pixel_arcsec: 3.2 },
+    { id: 'CDS/J/ApJ/1/1/table1', title: 'A paper table', regime: 'Optical', type: 'catalog', sky_fraction: 0.001,
+      rows: 120, url: null, pixel_arcsec: null }];
+
+  it('lists every dataset covering the field and shows them on the map: catalogues, coverage, backgrounds', async () => {
     const { fake, requests } = backend([{ type: 'done' }]);
     const asked: number[][] = [];
-    fake.listContextCatalogs = async (ra, dec, radius) => {
-      asked.push([ra, dec, radius]);
-      return [{ id: 'CDS/I/355/gaiadr3', title: 'Gaia DR3', url: 'https://hipscat.example/gaiadr3', rows: 1.8e9, sky_fraction: 1 },
-              { id: 'CDS/II/328/allwise', title: 'AllWISE', url: 'https://hipscat.example/allwise', rows: 7.5e8, sky_fraction: 1 }];
-    };
+    fake.listDatasets = async (ra, dec, radius) => { asked.push([ra, dec, radius]); return DATASETS; };
     const workspace = createWorkspace(fake, { pollMs: 1 });
     await workspace.connect();
-    await vi.waitFor(() => expect(workspace.field?.context_catalogs?.length).toBe(2));
+    await vi.waitFor(() => expect(workspace.datasetsStatus).toBe('ready'));
     const field = workspace.field!;
+    expect(field.datasets).toHaveLength(4);
     expect(asked).toEqual([[field.target.ra, field.target.dec, Math.min(30, Math.max(0.05, field.fov / 2))]]);
 
-    expect(workspace.request([{ type: 'context.show', id: 'CDS/I/9999/nope' }], 'user')).toMatch(/not available/);
+    // Only drawable catalogues can be drawn; only datasets here outlined; only images as the background.
+    expect(workspace.request([{ type: 'context.show', id: 'CDS/J/ApJ/1/1/table1' }], 'user')).toMatch(/not a drawable catalogue/);
     expect(workspace.request([{ type: 'context.hide', id: 'CDS/I/355/gaiadr3' }], 'user')).toMatch(/not shown/);
-    expect(workspace.request([{ type: 'context.show', id: 'CDS/II/328/allwise' }], 'user')).toBeNull();
+    expect(workspace.request([{ type: 'coverage.show', id: 'CDS/P/DES-DR2/ColorIRG' }], 'user')).toMatch(/not a dataset covering/);
+    expect(workspace.request([{ type: 'background.set', id: 'CDS/II/328/allwise' }], 'user')).toMatch(/not an image survey/);
+    expect(workspace.request([{ type: 'context.show', id: 'CDS/II/328/allwise' },
+      { type: 'coverage.show', id: 'CDS/P/eROSITA/DR1/rate/024-230keV' },
+      { type: 'background.set', id: 'CDS/P/eROSITA/DR1/rate/024-230keV' }], 'agent')).toBeNull();
+    expect(workspace.survey).toBe('CDS/P/DSS2/color');  // nothing changes until the map applies it
     resolveAll(workspace);
     expect(workspace.map.context).toEqual([{ id: 'CDS/II/328/allwise', title: 'AllWISE', url: 'https://hipscat.example/allwise',
-      color: expect.stringMatching(/^#[0-9a-f]{6}$/), origin: 'user' }]);
+      color: expect.stringMatching(/^#[0-9a-f]{6}$/), origin: 'agent' }]);
+    expect(workspace.map.coverage).toEqual([{ id: 'CDS/P/eROSITA/DR1/rate/024-230keV', title: 'eROSITA DR1',
+      color: expect.stringMatching(/^#[0-9a-f]{6}$/), origin: 'agent' }]);
+    expect(workspace.survey).toBe('CDS/P/eROSITA/DR1/rate/024-230keV');
 
     workspace.draft = 'what else is here?';
     await workspace.send();
-    expect((requests[0].context as Record<string, any>).contextCatalogs).toEqual({
-      shown: [{ id: 'CDS/II/328/allwise', title: 'AllWISE' }],
-      available: [{ id: 'CDS/I/355/gaiadr3', title: 'Gaia DR3', rows: 1.8e9 }, { id: 'CDS/II/328/allwise', title: 'AllWISE', rows: 7.5e8 }] });
+    const here = (requests[0].context as Record<string, any>).datasetsHere;
+    expect(here.total).toBe(4);
+    expect(here.byRegime.Optical).toMatchObject({ drawable: 1, table: 1, image: 0 });
+    expect(here.byRegime['X-ray'].widest).toEqual([{ id: 'CDS/P/eROSITA/DR1/rate/024-230keV', title: 'eROSITA DR1', kind: 'image' }]);
+    expect(here.shown).toEqual({ background: 'CDS/P/eROSITA/DR1/rate/024-230keV',
+      context: [{ id: 'CDS/II/328/allwise', title: 'AllWISE' }],
+      coverage: [{ id: 'CDS/P/eROSITA/DR1/rate/024-230keV', title: 'eROSITA DR1' }] });
 
-    workspace.request([{ type: 'context.hide', id: 'CDS/II/328/allwise' }], 'user');
+    workspace.request([{ type: 'context.hide', id: 'CDS/II/328/allwise' },
+      { type: 'coverage.hide', id: 'CDS/P/eROSITA/DR1/rate/024-230keV' }], 'user');
     resolveAll(workspace);
-    expect(workspace.map.context).toEqual([]);
+    expect([workspace.map.context, workspace.map.coverage]).toEqual([[], []]);
   });
 
-  it('works as before when the server cannot list context catalogues', async () => {
+  it('works as before when the server cannot list the datasets here', async () => {
     const { fake } = backend();
-    fake.listContextCatalogs = async () => { throw new Error('MOC server down'); };
+    fake.listDatasets = async () => { throw new Error('MOC server down'); };
     const workspace = createWorkspace(fake, { pollMs: 1 });
     await workspace.connect();
     expect(workspace.field?.key).toBe('mini_1');
-    expect(workspace.field?.context_catalogs).toBeUndefined();
+    await vi.waitFor(() => expect(workspace.datasetsStatus).toBe('failed'));
+    expect(workspace.field?.datasets).toBeUndefined();
   });
 
   it('applies a batch all-or-nothing and fails it when the map is unavailable', async () => {

@@ -4,6 +4,7 @@
   import SkyPanel from '../lib/components/SkyPanel.svelte';
   import LayersPanel from '../lib/components/LayersPanel.svelte';
   import LiteraturePanel from '../lib/components/LiteraturePanel.svelte';
+  import WhatsHerePanel from '../lib/components/WhatsHerePanel.svelte';
   import SelectedPanel from '../lib/components/SelectedPanel.svelte';
   import TablePanel from '../lib/components/TablePanel.svelte';
   import FieldNotesPanel from '../lib/components/FieldNotesPanel.svelte';
@@ -67,7 +68,7 @@
   const browser = typeof window !== 'undefined';
   const chatMax = () => (browser ? Math.min(900, window.innerWidth * 0.7) : 900);
   const resultsMax = () => (workspaceEl?.clientHeight ?? (browser ? window.innerHeight : 1000)) * 0.75;
-  const allTabs = ['Selected', 'Plot', 'Tables', 'Summary', 'Literature', 'Decisions', 'Activity', 'Debug'] as const;
+  const allTabs = ['Selected', 'Plot', 'Tables', "What's here", 'Summary', 'Literature', 'Decisions', 'Activity', 'Debug'] as const;
   // Debug appears in developer mode (⚙ Settings).
   const tabs = $derived(allTabs.filter((tab) => tab !== 'Debug' || workspace.debug));
   let activeTab = $state<(typeof allTabs)[number]>('Tables');
@@ -211,6 +212,8 @@
               <PlotPanel {workspace} onreveal={revealStep} />
             {:else if activeTab === 'Tables'}
               <TablePanel {workspace} />
+            {:else if activeTab === "What's here"}
+              <WhatsHerePanel {workspace} onask={askInChat} />
             {:else if activeTab === 'Summary'}
               <FieldNotesPanel {workspace} view="summary" />
             {:else if activeTab === 'Literature'}

@@ -203,45 +203,80 @@ def _regime(value: Any) -> str:
     return "Unspecified"
 
 
-def survey_inventory(region: dict, per_regime: int = 8, http=None) -> dict:
-    """Datasets (catalogs, images, cubes) whose sky coverage overlaps the region,
-    from the CDS MOC server, grouped by wavelength regime and ranked by how much
-    of the sky they cover (all-sky surveys first, single-paper tables last)."""
+def _first(value: Any) -> Any:
+    return value[0] if isinstance(value, list) and value else value
+
+
+def _number(value: Any, kind=float):
+    try:
+        return kind(_first(value))
+    except (TypeError, ValueError):
+        return None
+
+
+def _dataset(r: dict) -> dict | None:
+    """One MOC-server record as the workspace lists it."""
+    if not r.get("ID"):
+        return None
+    kind = str(_first(r.get("dataproduct_type")) or "unknown")
+    urls = r.get("hips_service_url")
+    url = next((u for u in (urls if isinstance(urls, list) else [urls])
+                if isinstance(u, str) and u.startswith("https://")), None)
+    scale = _number(r.get("hips_pixel_scale"))
+    return {"id": str(r["ID"]), "title": str(_first(r.get("obs_title")) or r["ID"])[:120],
+            "regime": _regime(r.get("obs_regime")),
+            "type": "image" if kind == "image" else "catalog" if kind == "catalog" else "cube" if "cube" in kind else kind,
+            "sky_fraction": _number(r.get("moc_sky_fraction")), "rows": _number(r.get("nb_rows"), int),
+            # A catalogue HiPS the map can draw (https: the page is https); images load by id.
+            "url": url.rstrip("/") if url else None,
+            "pixel_arcsec": round(scale * 3600, 3) if scale else None}
+
+
+def region_datasets(region: dict, http=None) -> dict:
+    """Every dataset whose sky coverage overlaps the region, from the CDS MOC server: image
+    surveys (HiPS the map can show), catalogues (drawable when they have a catalogue HiPS,
+    otherwise VizieR tables the data agent can add) and cubes. Widest coverage first."""
     import requests
     region = check_region(region)
     get = http or requests.get
     resp = get(MOCSERVER, params={"RA": region["ra"], "DEC": region["dec"], "SR": region["radius_deg"],
                                   "fmt": "json", "get": "record",
-                                  "fields": "ID,obs_title,obs_regime,dataproduct_type,moc_sky_fraction"},
+                                  "fields": "ID,obs_title,obs_regime,dataproduct_type,moc_sky_fraction,"
+                                            "hips_service_url,nb_rows,hips_pixel_scale"},
                timeout=TIMEOUT_S)
     resp.raise_for_status()
-    records = resp.json()
+    datasets = [d for d in map(_dataset, resp.json()) if d]
+    datasets.sort(key=lambda d: (-(d["sky_fraction"] or 0), -(d["rows"] or 0), d["id"]))
+    for d in datasets:
+        if d["type"] == "catalog" and d["url"]:
+            d["url"] = _reachable(d["url"], get)
+    return {"region": region, "datasets": datasets,
+            "source": "CDS MOC server (catalogues and HiPS whose coverage overlaps the region)"}
+
+
+def survey_inventory(region: dict, per_regime: int = 8, http=None) -> dict:
+    """Datasets (catalogs, images, cubes) whose sky coverage overlaps the region,
+    from the CDS MOC server, grouped by wavelength regime and ranked by how much
+    of the sky they cover (all-sky surveys first, single-paper tables last)."""
+    found = region_datasets(region, http)
     groups: dict[str, list[dict]] = {}
-    for r in records:
-        frac = r.get("moc_sky_fraction")
-        try:
-            frac = float(frac[0] if isinstance(frac, list) else frac)
-        except (TypeError, ValueError):
-            frac = None
-        groups.setdefault(_regime(r.get("obs_regime")), []).append({
-            "id": r.get("ID"), "title": str(r.get("obs_title") or "")[:100],
-            "type": str(r.get("dataproduct_type") or "unknown"), "sky_fraction": frac})
+    for d in found["datasets"]:
+        groups.setdefault(d["regime"], []).append(d)
     out = {}
     for regime, items in sorted(groups.items(), key=lambda kv: -len(kv[1])):
-        items.sort(key=lambda d: -(d["sky_fraction"] or 0))
         widest, families = [], set()
         for d in items:  # one entry per survey: HiPS variants and a catalog's tables share a family
-            family = "/".join(str(d["id"]).split("/")[:3])
+            family = "/".join(d["id"].split("/")[:3])
             if family not in families:
                 families.add(family)
-                widest.append(d)
+                widest.append({k: d[k] for k in ("id", "title", "type", "sky_fraction")})
             if len(widest) == per_regime:
                 break
         out[regime] = {"datasets": len(items),
                        "by_type": dict(Counter(d["type"] for d in items).most_common()),
                        "widest": widest}
-    return {"region": region, "total": len(records), "by_regime": out,
-            "source": "CDS MOC server (catalogs and HiPS whose coverage overlaps the region)",
+    return {"region": found["region"], "total": len(found["datasets"]), "by_regime": out,
+            "source": found["source"],
             "not_covered": ["gravitational-wave localizations (GraceDB; not in the MOC server)",
                             "pointed-observation archives are only partly listed: use their own "
                             "services (e.g. MAST, CADC, HEASARC) for complete inventories"]}
@@ -276,43 +311,6 @@ def _reachable(url: str, get) -> str:
             if _answers(mirror, alternative + "/properties", get):
                 return alternative
     return url
-
-
-def catalog_hips(region: dict, limit: int = 40, http=None) -> list[dict]:
-    """Catalogue HiPS (progressive catalogues the map can draw straight from CDS) whose
-    coverage overlaps the region, widest first: Gaia, 2MASS, AllWISE and the like, for
-    context. Drawing one fetches nothing into the field; its rows stay at CDS."""
-    import requests
-    region = check_region(region)
-    get = http or requests.get
-    resp = get(MOCSERVER, params={"RA": region["ra"], "DEC": region["dec"], "SR": region["radius_deg"],
-                                  "fmt": "json", "get": "record", "dataproduct_type": "catalog",
-                                  "fields": "ID,obs_title,dataproduct_type,hips_service_url,nb_rows,moc_sky_fraction"},
-               timeout=TIMEOUT_S)
-    resp.raise_for_status()
-    first = lambda v: v[0] if isinstance(v, list) and v else v  # noqa: E731
-    out = []
-    for r in resp.json():
-        url = next((u for u in (r.get("hips_service_url") if isinstance(r.get("hips_service_url"), list)
-                                 else [r.get("hips_service_url")]) if isinstance(u, str) and u.startswith("https://")),
-                   None)
-        if first(r.get("dataproduct_type")) != "catalog" or not url or not r.get("ID"):
-            continue  # not a catalogue HiPS, or only served over http (the page is https)
-        try:
-            fraction = float(first(r.get("moc_sky_fraction")))
-        except (TypeError, ValueError):
-            fraction = None
-        try:
-            rows = int(first(r.get("nb_rows")))
-        except (TypeError, ValueError):
-            rows = None
-        out.append({"id": str(r["ID"]), "title": str(first(r.get("obs_title")) or r["ID"])[:120],
-                    "url": url.rstrip("/"), "rows": rows, "sky_fraction": fraction})
-    out.sort(key=lambda c: (-(c["sky_fraction"] or 0), -(c["rows"] or 0)))
-    out = out[:limit]
-    for catalog in out:
-        catalog["url"] = _reachable(catalog["url"], get)
-    return out
 
 
 # ── VizieR ───────────────────────────────────────────────────────────────────
@@ -470,6 +468,6 @@ def query_service(url: str, table: str, region: dict, *, label: str, columns: li
                        rows=rows, limit=limit)
 
 
-__all__ = ["DiscoveryError", "build_adql", "catalog_hips", "check_public_url", "check_where", "describe_catalog",
+__all__ = ["DiscoveryError", "build_adql", "check_public_url", "check_where", "describe_catalog",
            "describe_service", "find_catalogs", "find_services", "json_value", "position_columns",
-           "query_catalog", "query_service", "survey_inventory", "table_rows"]
+           "query_catalog", "query_service", "region_datasets", "survey_inventory", "table_rows"]

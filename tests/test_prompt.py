@@ -34,13 +34,13 @@ class PromptTests(unittest.TestCase):
     def test_every_map_action_is_described(self):
         for action in ("layer.add", "layer.update", "layer.remove", "focus", "focus.rows", "highlight",
                        "annotate", "annotations.clear", "select", "plot.show", "plot.hide", "context.show",
-                       "context.hide"):
+                       "context.hide", "coverage.show", "coverage.hide", "background.set"):
             self.assertIn(action, WORKSPACE_PROMPT)
 
     def test_every_context_key_is_explained(self):
         for key in ("field", "availableFields", "viewport", "survey", "layers", "highlight", "annotations",
                     "selection", "userRegions", "plot", "selectedPublication", "mapAcknowledgments", "kernel",
-                    "contextCatalogs"):
+                    "datasetsHere"):
             self.assertIn(key, WORKSPACE_PROMPT)
 
 

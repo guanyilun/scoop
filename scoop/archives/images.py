@@ -43,7 +43,7 @@ BACKGROUNDS = [
 ]
 SIZE = 512  # pixels; enough detail for morphology, small enough to keep cost down
 # FITS cutouts: any image HiPS by its CDS id (e.g. CDS/P/DSS2/red, CDS/P/PLANCK/R3/HFI857).
-HIPS_ID = re.compile(r"[A-Za-z0-9_.+-]{1,64}(/[A-Za-z0-9_.+-]{1,64}){1,8}")
+HIPS_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}(/[A-Za-z0-9][A-Za-z0-9_.+-]{0,63}){1,8}")
 PROJECTIONS = ("TAN", "SIN", "CAR", "ZEA", "AIT", "MOL")  # CAR suits wide fields and CMB-style maps
 MAX_PIXELS = 4000  # per side; ~64 MB of float32 at most
 

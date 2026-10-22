@@ -1,4 +1,4 @@
-"""Catalogue HiPS for the map's context layers, and FITS cutouts for run_kernel."""
+"""What's here: every dataset covering a field (CDS MOC server), and FITS cutouts for run_kernel."""
 import asyncio
 import json
 import tempfile
@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 
 from scoop.archives import discovery
-from scoop.archives.discovery import catalog_hips
+from scoop.archives.discovery import region_datasets, survey_inventory
 from scoop.archives.images import fits_params
 
 try:
@@ -22,13 +22,15 @@ else:
     HAS_SERVER = True
 
 GAIA = {"ID": "CDS/I/355/gaiadr3", "obs_title": "Gaia DR3 (Gaia Collaboration, 2022)", "dataproduct_type": "catalog",
+        "obs_regime": "Optical",
         "hips_service_url": ["http://mirror.example/gaia", "https://hipscat.cds.unistra.fr/HiPSCatService/I/355/gaiadr3/"],
         "nb_rows": "1811709771", "moc_sky_fraction": "1"}
 SMALL = {"ID": "CDS/J/ApJ/1/1/table1", "obs_title": "A paper table", "dataproduct_type": "catalog",
          "hips_service_url": "https://hipscat.cds.unistra.fr/HiPSCatService/J/ApJ/1/1/table1",
          "nb_rows": "120", "moc_sky_fraction": "0.0001"}
-IMAGE = {"ID": "CDS/P/DSS2/red", "obs_title": "DSS2 red", "dataproduct_type": "image",
-         "hips_service_url": "https://alasky.cds.unistra.fr/DSS/DSS2Merged", "moc_sky_fraction": "1"}
+IMAGE = {"ID": "CDS/P/DSS2/red", "obs_title": "DSS2 red", "dataproduct_type": "image", "obs_regime": ["Optical"],
+         "hips_service_url": "https://alasky.cds.unistra.fr/DSS/DSS2Merged", "moc_sky_fraction": "1",
+         "hips_pixel_scale": "2.236E-4"}
 HTTP_ONLY = {"ID": "XCat/old", "obs_title": "Old", "dataproduct_type": "catalog",
              "hips_service_url": "http://old.example/cat", "moc_sky_fraction": "1"}
 
@@ -44,7 +46,7 @@ class FakeResponse:
         return self.records
 
 
-class CatalogHipsTests(unittest.TestCase):
+class RegionDatasetsTests(unittest.TestCase):
     def setUp(self):
         discovery._host_checks.clear()
 
@@ -63,24 +65,36 @@ class CatalogHipsTests(unittest.TestCase):
 
         return get
 
-    def test_catalogue_hips_over_https_widest_first(self):
-        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc())
-        sent = self.sent
-        self.assertEqual([c["id"] for c in found], ["CDS/I/355/gaiadr3", "CDS/J/ApJ/1/1/table1"])
+    REGION = {"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}
+
+    def test_every_dataset_widest_first_with_what_the_map_needs(self):
+        found = region_datasets(self.REGION, http=self.moc())["datasets"]
+        self.assertEqual([d["id"] for d in found], ["CDS/I/355/gaiadr3", "CDS/P/DSS2/red", "XCat/old",
+                                                    "CDS/J/ApJ/1/1/table1"])
         self.assertEqual(found[0], {"id": "CDS/I/355/gaiadr3", "title": "Gaia DR3 (Gaia Collaboration, 2022)",
+                                    "regime": "Optical", "type": "catalog", "sky_fraction": 1.0, "rows": 1811709771,
                                     "url": "https://hipscat.cds.unistra.fr/HiPSCatService/I/355/gaiadr3",
-                                    "rows": 1811709771, "sky_fraction": 1.0})
-        self.assertEqual(sent[0]["dataproduct_type"], "catalog")
+                                    "pixel_arcsec": None})
+        image = found[1]
+        self.assertEqual((image["type"], image["regime"], image["pixel_arcsec"]), ("image", "Optical", 0.805))
+        self.assertIsNone(found[2]["url"])  # http only: listed (the data agent can add it), not drawable
+        self.assertNotIn("dataproduct_type", self.sent[0])  # every kind, not only catalogues
         self.assertEqual(len(self.probed), 1)  # one check per host, not per catalogue
 
     def test_an_unreachable_host_is_replaced_by_the_cds_mirror(self):
-        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc(up=("axel.u-strasbg.fr",)))
-        self.assertEqual([c["url"] for c in found], ["https://axel.u-strasbg.fr/HiPSCatService/I/355/gaiadr3",
-                                                     "https://axel.u-strasbg.fr/HiPSCatService/J/ApJ/1/1/table1"])
+        found = region_datasets(self.REGION, http=self.moc(up=("axel.u-strasbg.fr",)))["datasets"]
+        self.assertEqual([d["url"] for d in found if d["type"] == "catalog" and d["url"]],
+                         ["https://axel.u-strasbg.fr/HiPSCatService/I/355/gaiadr3",
+                          "https://axel.u-strasbg.fr/HiPSCatService/J/ApJ/1/1/table1"])
 
     def test_with_neither_host_answering_the_listed_url_is_kept(self):
-        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc(up=()))
+        found = region_datasets(self.REGION, http=self.moc(up=()))["datasets"]
         self.assertTrue(found[0]["url"].startswith("https://hipscat.cds.unistra.fr/"))
+
+    def test_the_data_agents_inventory_summarizes_the_same_list(self):
+        inventory = survey_inventory(self.REGION, http=self.moc())
+        self.assertEqual(inventory["total"], 4)
+        self.assertEqual(inventory["by_regime"]["Optical"]["by_type"], {"catalog": 1, "image": 1})
 
 
 class FitsParamsTests(unittest.TestCase):
@@ -143,6 +157,9 @@ class FitsCutoutToolTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_SERVER, "optional server dependencies absent")
 class EndpointTests(unittest.TestCase):
+    DATASET = {"id": "CDS/I/355/gaiadr3", "title": "Gaia DR3", "regime": "Optical", "type": "catalog",
+               "sky_fraction": 1.0, "rows": 1, "url": "https://x", "pixel_arcsec": None}
+
     def setUp(self):
         self.calls = []
 
@@ -150,27 +167,27 @@ class EndpointTests(unittest.TestCase):
             self.calls.append(region)
             if region["dec"] < -80:
                 raise ConnectionError("MOC server down")
-            return [{"id": "CDS/I/355/gaiadr3", "title": "Gaia DR3", "url": "https://x", "rows": 1, "sky_fraction": 1.0}]
+            return {"region": region, "datasets": [self.DATASET] * 400, "source": "test"}
 
-        self.client = TestClient(create_app(list_context_catalogs=lister))
+        self.client = TestClient(create_app(list_datasets=lister))
 
-    def test_listed_rounded_and_cached(self):
-        first = self.client.get("/api/context-catalogs?ra=260.0512&dec=57.9154&radius=0.5")
-        again = self.client.get("/api/context-catalogs?ra=260.0498&dec=57.9161&radius=0.5")
-        self.assertEqual(first.json()["catalogs"][0]["id"], "CDS/I/355/gaiadr3")
+    def test_listed_rounded_cached_and_compressed(self):
+        first = self.client.get("/api/datasets?ra=260.0512&dec=57.9154&radius=0.5")
+        again = self.client.get("/api/datasets?ra=260.0498&dec=57.9161&radius=0.5")
+        self.assertEqual(first.json()["datasets"][0], self.DATASET)
         self.assertEqual(again.json(), first.json())
         self.assertEqual(self.calls, [{"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}])
+        self.assertEqual(first.headers["content-encoding"], "gzip")  # a field's list is hundreds of kB
 
     def test_bad_regions_and_an_outage(self):
         for query in ("", "?ra=1&dec=2", "?ra=400&dec=0&radius=1", "?ra=1&dec=0&radius=90", "?ra=x&dec=0&radius=1"):
             with self.subTest(query=query):
-                self.assertEqual(self.client.get(f"/api/context-catalogs{query}").status_code, 400)
-        down = self.client.get("/api/context-catalogs?ra=1&dec=-85&radius=1")
-        self.assertEqual((down.status_code, down.json()["catalogs"]), (502, []))
+                self.assertEqual(self.client.get(f"/api/datasets{query}").status_code, 400)
+        down = self.client.get("/api/datasets?ra=1&dec=-85&radius=1")
+        self.assertEqual((down.status_code, down.json()["datasets"]), (502, []))
 
     def test_off_without_a_lister(self):
-        self.assertEqual(TestClient(create_app()).get("/api/context-catalogs?ra=1&dec=2&radius=1").json(),
-                         {"catalogs": []})
+        self.assertEqual(TestClient(create_app()).get("/api/datasets?ra=1&dec=2&radius=1").json(), {"datasets": []})
 
 
 if __name__ == "__main__":

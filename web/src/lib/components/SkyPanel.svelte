@@ -2,7 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import type { Workspace } from '../workspace/state.svelte';
   import { layerRows, rowsOf } from '../field/actions';
-  import type { Annotation, ContextLayer, Field, Layer, Row } from '../field/types';
+  import type { Annotation, ContextLayer, CoverageLayer, Field, Layer, Row } from '../field/types';
   import { boxFromDrag, circleFromDrag, polygonFromClicks, rowFromClick, wheelFactor, zoomAnchor, type AladinAPI, type AladinLayer, type AladinViewer } from '../sky/aladin';
   let { workspace }: { workspace: Workspace } = $props();
   let A: AladinAPI | null = null;
@@ -13,12 +13,15 @@
   const HIGHLIGHT = '#ffd84d';
   const SELECTED = '#ffffff';
   const NOTE = { agent: '#f1cb82', user: '#9fd3ff' };
+  const MOCSERVER = 'https://alasky.cds.unistra.fr/MocServer/query';
 
   // Aladin objects drawn for each layer, rebuilt only when what they draw changes.
   const drawn = new Map<string, { signature: string; objects: AladinLayer[] }>();
   let extras: AladinLayer[] = [];
   // Context catalogues (catalogue HiPS from CDS), redrawn only when one's URL or colour changes.
   const contextDrawn = new Map<string, { signature: string; layer: AladinLayer }>();
+  // Coverage outlines (MOCs from the CDS MOC server), redrawn only when one's colour changes.
+  const coverageDrawn = new Map<string, { signature: string; layer: AladinLayer }>();
 
   function captureViewport() {
     if (!sky) return;
@@ -90,6 +93,25 @@
     }
   }
 
+  function renderCoverage(coverage: CoverageLayer[]) {
+    if (!A?.MOCFromURL || !sky?.addMOC) return;
+    const keep = new Set(coverage.map((c) => c.id));
+    for (const dataset of coverage) {
+      const entry = coverageDrawn.get(dataset.id);
+      if (entry?.signature === dataset.color) continue;
+      if (entry) sky.removeOverlay(entry.layer);
+      // Order 7 cells are ~0.5°: outline enough for "is this field in it?", and a few kB to fetch.
+      const url = `${MOCSERVER}?${new URLSearchParams({ ID: dataset.id, get: 'moc', fmt: 'fits', order: '7' })}`;
+      const layer = A.MOCFromURL(url, { name: `${dataset.title} coverage`, color: dataset.color, fillColor: dataset.color,
+        fill: true, opacity: 0.15, perimeter: true, lineWidth: 2 });
+      sky.addMOC(layer);
+      coverageDrawn.set(dataset.id, { signature: dataset.color, layer });
+    }
+    for (const [id, entry] of coverageDrawn) {
+      if (!keep.has(id)) { sky.removeOverlay(entry.layer); coverageDrawn.delete(id); }
+    }
+  }
+
   function renderMarks(field: Field | null, annotations: Annotation[]) {
     if (!A || !sky) return;
     extras.forEach((object) => sky!.removeOverlay(object));
@@ -127,6 +149,10 @@
   $effect(() => {
     const context = workspace.map.context ?? [];
     if (phase === 'ready') untrack(() => renderContext(context));
+  });
+  $effect(() => {
+    const coverage = workspace.map.coverage ?? [];
+    if (phase === 'ready') untrack(() => renderCoverage(coverage));
   });
   $effect(() => {
     const [field, , , annotations] = [workspace.field, workspace.map.highlight, workspace.map.selection, workspace.map.annotations];

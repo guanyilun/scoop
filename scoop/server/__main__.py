@@ -88,7 +88,7 @@ async def _serve(host: str, port: int, audit_path: Path | None, fields_dir: Path
     import httpx
 
     from ..science.fields import FieldStore
-    from ..archives.discovery import catalog_hips
+    from ..archives.discovery import region_datasets
     from ..archives.images import cutout_fetcher, fits_fetcher
     from ..runtime.kernel import available_kernels
     from ..runtime.sandbox import PythonSandbox
@@ -142,7 +142,7 @@ async def _serve(host: str, port: int, audit_path: Path | None, fields_dir: Path
                          make_ads=ads_maker(web), resolver=sesame_resolver(web), simbad=simbad_query(web),
                          jobs=jobs, lvdb=LVDBIndex(fields_dir), fetch_image=cutout_fetcher(web),
                          fetch_fits=fits_fetcher(web),
-                         list_context_catalogs=lambda region: asyncio.to_thread(catalog_hips, region),
+                         list_datasets=lambda region: asyncio.to_thread(region_datasets, region),
                          web=(web_searcher(web), page_reader(web)), python=python,
                          make_kernel=kernel_maker(kernels), list_kernels=available_kernels,
                          list_models=model_lister(web, attribution_headers),

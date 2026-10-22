@@ -70,13 +70,20 @@ export interface Field {
   decisions: string[];
   surveys: [string, string][];
   layers: Layer[];
-  // Catalogue HiPS covering the field (CDS MOC server), for context layers; fetched separately.
-  context_catalogs?: ContextCatalog[];
+  // Every dataset covering the field (CDS MOC server), for the What's here tab; fetched separately.
+  datasets?: Dataset[];
 }
 
+// A dataset whose coverage overlaps the field: an image survey (the map can show it as the
+// background), a catalogue (drawable when it has a catalogue HiPS url) or a cube.
+export interface Dataset {
+  id: string; title: string; regime: string; type: string; sky_fraction: number | null;
+  rows: number | null; url: string | null; pixel_arcsec: number | null;
+}
 // A whole catalogue drawn from CDS for context (catalogue HiPS): display only, its rows stay at CDS.
-export interface ContextCatalog { id: string; title: string; url: string; rows: number | null; sky_fraction: number | null }
 export interface ContextLayer { id: string; title: string; url: string; color: string; origin: Origin }
+// Where a dataset has data: its coverage map (MOC) outlined on the sky.
+export interface CoverageLayer { id: string; title: string; color: string; origin: Origin }
 
 export interface Highlight { table: string; ids: string[]; reason: string | null; origin: Origin }
 export interface Annotation {
@@ -110,7 +117,10 @@ export type MapAction =
   | ({ type: 'plot.show' } & PlotSpec)
   | { type: 'plot.hide' }
   | { type: 'context.show'; id: string; color?: string }
-  | { type: 'context.hide'; id: string };
+  | { type: 'context.hide'; id: string }
+  | { type: 'coverage.show'; id: string; color?: string }
+  | { type: 'coverage.hide'; id: string }
+  | { type: 'background.set'; id: string };
 
 // A scatter (x, y) or histogram (x only) of one table, drawn with the map's layers.
 // A preset drawn from one table.
@@ -126,4 +136,5 @@ export interface MapState {
   selection: RowRef | null;
   plot?: PlotSpec | null;
   context?: ContextLayer[];
+  coverage?: CoverageLayer[];
 }
