@@ -20,7 +20,7 @@ sources_checked: 2026-10-20 (Local Volume Database v1.1.1 release files
 |---|---|---|
 | **Dwarf galaxy or globular cluster** (Milky Way, Local Group) | **The Local Volume Database (LVDB)** lists the published measurements for each object | Always check the LVDB first (below), then the literature agent for anything newer |
 | **Individual stars** | **Gaia** (DR3 now; DR4 from 2 Dec 2026) is almost always the best source | Use the gaia skill; for faint stars in HST/JWST fields, check for HST-based catalogs and assess HST/JWST+Gaia (below) |
-| **Beyond the Local Group** (≳ 1.5 Mpc) | Almost certainly **none** | Say so plainly; don't search exhaustively. Exceptions are rare and come from VLBI/masers, not optical astrometry |
+| **Beyond the Local Group** (≳ 1.5 Mpc) | Almost certainly **none** | Say so plainly; don't search exhaustively. Exceptions are rare and come from VLBI/masers, not optical astrometry. Their line-of-sight peculiar velocities are another matter: see surveys/galaxy_peculiar_velocities |
 
 Why distance matters: the proper motion of an object moving at a tangential
 velocity *v* at distance *d* is μ = *v* / (4.74 *d*), with μ in mas/yr, *v* in
