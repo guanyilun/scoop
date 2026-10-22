@@ -20,7 +20,7 @@ archive.
 | [mast_hst_jwst](surveys/mast_hst_jwst.md) | HST and JWST images and spectra, footprints, epochs and baselines, exclusive-access and planned observations, Hubble Source Catalog, HAP mosaics, HLSPs |
 | [galaxy_peculiar_velocities](surveys/galaxy_peculiar_velocities.md) | Peculiar velocities of galaxies and groups beyond the Local Group: Cosmicflows-4, 6dFGS and SDSS Fundamental Plane, Pantheon+, DESI DR1 (not public yet), and kSZ as a statistical route (draft) |
 | [cadc_cfht](surveys/cadc_cfht.md) | CFHT observations (MegaCam images etc.) at CADC, as footprints via ObsCore (draft) |
-| [act](surveys/act.md) | ACT maps (90/150/220 GHz) and ACT+Planck Compton-y: CDS quick-look copies vs the official DR6.02 LAMBDA files, NILC y-map variants (draft) |
+| [act](surveys/act.md) | ACT maps (90/150/220 GHz) and ACT+Planck Compton-y: CDS quick-look copies vs the official DR6.02 LAMBDA and NERSC files, NILC y-map variants, and ACT's DR6 notebooks as recipes (pixell cutouts, stacking, CIB checks, depth-1 transients) (draft) |
 | [lamost](surveys/lamost.md) | LAMOST spectroscopic catalogs via VizieR, up to DR11 (draft) |
 | [sdss_spectra](surveys/sdss_spectra.md) | SDSS optical and APOGEE infrared spectra (SDSS-I through V, DR20), MaNGA, redshifts and classifications |
 

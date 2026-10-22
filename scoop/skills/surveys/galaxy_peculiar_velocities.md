@@ -38,7 +38,11 @@ stacking many galaxies. With ACT, for example: the pairwise kSZ with SDSS DR15
 (2021PhRvD.104d3502C), velocity reconstruction with DESI LRGs (2025JCAP...05..057M),
 and gas profiles from DESI Y1 and ACT (2025PhRvD.112j3512R). For the CMB maps, see
 the skill surveys/act. A kSZ measurement is a separate analysis; no catalogue of
-per-object kSZ velocities exists.
+per-object kSZ velocities exists. The cutout-and-stack mechanics are those of ACT's y-map
+stacking notebook (surveys/act, Recipes), applied to the CMB temperature maps with a
+velocity or pairwise weighting. The kSZ papers above give the estimators and their
+filtering; the plain y-map stack is not enough on its own, because the kSZ signal is
+far smaller than primary-CMB fluctuations.
 
 ## Gotchas
 - **Errors are large and grow with distance.** A distance-modulus error σ_μ gives
