@@ -31,17 +31,6 @@ fields = [
     "requests>=2.32,<3",
     "pyvo>=1.5,<2",
 ]
-# The monthly dataset scout: ADS over httpx, a LangChain model (Anthropic, or any
-# OpenAI-compatible endpoint), tool arguments checked with jsonschema. Data sources it
-# generates query TAP with pyvo.
-scout = [
-    "scoop-sky[literature]",
-    "langchain-core>=1.6.12,<2",
-    "langchain-anthropic>=1,<2",
-    "langchain-openai>=1,<2",
-    "jsonschema>=4.21,<5",
-    "pyvo>=1.5,<2",
-]
 # run_kernel (scoop/runtime/kernel.py): a Jupyter kernel in the user's own analysis environment.
 kernel = ["jupyter_client>=8,<9"]
 # The data agent (scoop/archives/discovery.py): VO registry, TAP, VizieR, MOC server.
@@ -69,7 +58,7 @@ eval = [
     "mcp>=1.2",
 ]
 dev = [
-    "scoop-sky[server,kernel,scout,eval]",
+    "scoop-sky[server,kernel,eval]",
     "pytest>=8",
 ]
 

@@ -2,20 +2,17 @@
 
 Checked on every turn (cheap: file times, no network) and put in the chat agent's
 context, which mentions it once at the start of a conversation: how old the field is,
-the data-source plug-ins and survey skills added since it was built that it lacks, and
-how long ago the dataset scout last looked for new data releases. The data agent then
-refreshes the field or adds the new sources if the user wants.
+and the data-source plug-ins and survey skills added since it was built that it lacks.
+The data agent then refreshes the field or adds the new sources if the user wants.
 """
 from __future__ import annotations
 
-import json
 import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]  # the checkout (the scout's state file lives at its root)
+REPO = Path(__file__).resolve().parents[2]  # the checkout
 STALE_DAYS = 30  # a field older than this may have newer data releases behind it
-SCOUT_DAYS = 31  # the scout's intended cadence (scoop/scout/state.py)
 
 
 def _days(seconds: float) -> float:
@@ -24,22 +21,6 @@ def _days(seconds: float) -> float:
 
 def _iso(ts: float) -> str:
     return datetime.fromtimestamp(ts, timezone.utc).date().isoformat()
-
-
-def scout_status(repo: Path = REPO, now: float | None = None) -> dict:
-    """When the dataset scout last scanned ADS for new data releases."""
-    now = time.time() if now is None else now
-    try:
-        last = json.loads((repo / ".scout_state.json").read_text()).get("last_scan")
-    except (OSError, ValueError):
-        last = None
-    if not last:  # the scout runs on GitHub; a checkout may not have its state: unknown, not overdue
-        return {"last_scan": None, "overdue": False, "note": "no scan recorded in this checkout"}
-    try:
-        ts = datetime.fromisoformat(last).replace(tzinfo=timezone.utc).timestamp()
-    except ValueError:
-        return {"last_scan": last, "overdue": True}
-    return {"last_scan": last, "days_since": _days(now - ts), "overdue": now - ts > SCOUT_DAYS * 86400}
 
 
 def field_freshness(field: dict, field_path: Path | None, repo: Path = REPO, now: float | None = None) -> dict:
@@ -71,10 +52,7 @@ def field_freshness(field: dict, field_path: Path | None, repo: Path = REPO, now
 
 
 def freshness(field: dict | None, field_path: Path | None, repo: Path = REPO, now: float | None = None) -> dict:
-    out = {"scout": scout_status(repo, now)}
-    if field is not None:
-        out["field"] = field_freshness(field, field_path, repo, now)
-    return out
+    return {"field": field_freshness(field, field_path, repo, now)} if field is not None else {}
 
 
-__all__ = ["SCOUT_DAYS", "STALE_DAYS", "field_freshness", "freshness", "scout_status"]
+__all__ = ["STALE_DAYS", "field_freshness", "freshness"]

@@ -110,9 +110,8 @@ one organized result.
 
 ### What runs today
 
-SCOOP has **six agents** (a model working in a loop with tools). Four serve the
-workspace, the triage agent runs in the workspace server on a timer, and the dataset
-scout runs on its own. Everything else (the field pipeline, data-source
+SCOOP has **five agents** (a model working in a loop with tools). Four serve the
+workspace, and the triage agent runs in the workspace server on a timer. Everything else (the field pipeline, data-source
 plug-ins, budgets, Gaia sizing and health checks, evaluation) is ordinary code the
 agents call or that checks them.
 
@@ -130,12 +129,11 @@ flowchart LR
     FS --> C
     X --> EQ[["exoplanets/ archive queries<br/>(NASA Exoplanet Archive, TESS, TIC, MAST)"]]
     EQ -->|"reused as plug-ins"| J
-    SC["Dataset scout<br/>(monthly, GitHub Actions)"] -->|"draft skills and sources"| PR["Branch / PR<br/>for review"]
     FS -.->|"failures, traces, failed runs"| TA["Triage agent<br/>(hourly, when idle)"]
     TA -->|"suggested changes<br/>(report, read-only)"| TR["/triage<br/>(Claude Code skill, on request)"]
-    TR -->|"tested fixes"| PR
+    TR -->|"tested fixes"| PR["Branch / PR<br/>for review"]
     classDef agent fill:#fde7c8,stroke:#c77700,stroke-width:2px,color:#000
-    class C,D,P,X,SC,TA agent
+    class C,D,P,X,TA agent
 ```
 
 | Agent | Runs | Built on | Started by |
@@ -145,7 +143,6 @@ flowchart LR
 | **Proper-motion agent** | in the workspace, inside a chat turn | LangGraph, its own prompt and tools ([`scoop/agents/pm_agent.py`](scoop/agents/pm_agent.py)) | the chat agent's `ask_pm_agent` |
 | **Exoplanet agent** | in the workspace, inside a chat turn (also standalone) | LangGraph, answers checked in code ([`scoop/exoplanets/agent.py`](scoop/exoplanets/agent.py), chat tool [`scoop/agents/exoplanet_agent.py`](scoop/agents/exoplanet_agent.py)) | the chat agent's `ask_exoplanet_agent`; Python, its benchmark |
 | **Triage agent** | in the workspace server, on a timer | LangGraph ([`scoop/agents/triage_agent.py`](scoop/agents/triage_agent.py)) | at most hourly (`--triage-every`), after 10 idle minutes, when there are new failures |
-| **Dataset scout** | GitHub Actions, monthly | a LangChain model in a budgeted loop ([`scoop/scout/`](scoop/scout/__main__.py)) | schedule, or by hand |
 
 No agent changes SCOOP's code: the data agent reads failed runs and reports them during
 a turn; the triage agent reads new failures, the traces of the turns they happened in
@@ -189,7 +186,7 @@ flowchart LR
     J --> FS[("Fields")]
     AD --> FS
     FS --> W
-    FS -.-> FR["Freshness (each turn, no network)<br/>field age · plug-ins and skills added since ·<br/>dataset scout's last scan"]
+    FS -.-> FR["Freshness (each turn, no network)<br/>field age · plug-ins and skills added since"]
     FR -.->|"first turn: say once,<br/>offer a refresh"| C
 ```
 
@@ -207,8 +204,8 @@ Around them:
 - **Cost budgets** ([What a command costs](#what-a-command-costs)): an optional per-conversation
   budget, an estimate before each command and its actual cost after.
 - **Freshness** ([`scoop/runtime/freshness.py`](scoop/runtime/freshness.py)): every turn's context says how old
-  the loaded field is, which data-source plug-ins and survey skills SCOOP gained since it was
-  built, and when the dataset scout last looked for new data releases. On the first turn of
+  the loaded field is, and which data-source plug-ins and survey skills SCOOP gained since it
+  was built. On the first turn of
   a conversation the chat agent mentions an old field (over 30 days) or new sources once,
   and offers to refresh it or add them through the data agent.
 - **Exoplanet agent** ([`scoop/exoplanets/`](scoop/exoplanets/agent.py)): answers planet questions with
@@ -226,18 +223,15 @@ flowchart LR
     TRC[("Traces of the failing turns")] --> TA
     TA -->|"suggested changes"| T["/triage<br/>(Claude Code skill)"]
     T -->|"reproduce, test, fix"| B["Branch / PR for review"]
-    ADS[("ADS / arXiv<br/>data-release papers")] --> SC["Dataset scout agent<br/>(monthly)"]
-    SC -->|"draft skills, sources, probes"| B
     FLD[("Fields")] --> DC["Data checks<br/>(evaluation/verify.py)<br/>records real, in the field, correct"]
     SRV["Running workspace"] --> SPC["Spot checks<br/>(evaluation/spot_checks.py)<br/>right agent, tools, map actions, answer"]
     DC --> REP["Reports<br/>(spot checks: also the demos'<br/>rehearsal and transcripts)"]
     SPC --> REP
 ```
 
-  The [dataset scout](#dataset-scout) finds datasets SCOOP lacks; `/triage`
-  ([skill](.claude/skills/triage/SKILL.md), [`scoop/runtime/triage.py`](scoop/runtime/triage.py))
-  turns the triage agent's suggestions into tested fixes. Both open branches for a person
-  to review; nothing changes SCOOP's code unreviewed.
+  `/triage` ([skill](.claude/skills/triage/SKILL.md), [`scoop/runtime/triage.py`](scoop/runtime/triage.py))
+  turns the triage agent's suggestions into tested fixes, on a branch for a person to
+  review; nothing changes SCOOP's code unreviewed.
   [Evaluation](evaluation/README.md) checks both halves of an answer: the **data checks**
   go back to the archives to confirm a field's records are real, inside the field and
   correct; the **spot checks** send real questions to a running workspace and check that
@@ -290,11 +284,6 @@ flowchart TD
 | **Compiler agent** | Collects everything the data agents found, puts it into a common schema, cross-matches sources between surveys, removes duplicates, and builds the final inventory of what exists. |
 | **Summary agent** | Writes the plain-language digest of the data and the literature, with every claim cited to a paper or dataset. |
 | **Download agent** | Fetches the images, spectra and tables the user selects, with caching and a manifest of where each file came from. |
-
-One agent is not in that diagram because it does not serve a request: the
-**dataset scout** runs once a month, finds datasets SCOOP is missing or has gone
-stale on, and opens a pull request with draft skills and data sources for a
-person to review. See [Dataset scout](#dataset-scout) below.
 
 Each agent works from **skills**: short guides to what each archive holds,
 how to check coverage and cost before downloading, how to query it, its
@@ -379,8 +368,8 @@ See the [map and agent interaction design](docs/map_interaction.md) and the
 | Time domain & multi-messenger | — | ZTF, ATLAS, TNS; GW sky maps (GraceDB), IceCube, GCN, CHIME |
 
 New archives are plug-ins in [`scoop/sources/`](scoop/sources/__init__.py) plus a skill in
-[`skills/`](scoop/skills/index.md); the [dataset scout](#dataset-scout) drafts both for new data
-releases.
+[`skills/`](scoop/skills/index.md); when a request needs a survey with no skill, the data agent
+drafts one (`save_skill_draft`) for a person to review.
 
 ## What a command costs
 
@@ -424,38 +413,6 @@ python -m scoop.runtime.cost "Summarize this abstract" claude-opus-5-5   # one e
 ```
 
 Playbook: [docs/cost_checking.md](docs/cost_checking.md).
-
-## Dataset scout
-
-SCOOP's coverage decays: surveys release data, releases supersede the ones the
-skills are pinned to, and nobody notices until SCOOP quietly answers from a
-four-year-old catalogue. The **dataset scout** is a scheduled agent that looks
-for that decay once a month.
-
-It harvests data-release and catalogue papers from ADS (which indexes arXiv too)
-for the window since the last scan, compares them against what the skills and
-the registered data sources already cover, and for each real gap verifies the
-dataset against the archive's own pages and writes:
-
-- a draft skill in [`scoop/skills/surveys/`](scoop/skills/index.md), in the template from
-  [`new_survey_skill`](scoop/skills/meta/new_survey_skill.md);
-- a registered module in [`scoop/sources/`](scoop/sources/__init__.py), which is
-  all the field pipeline needs to start returning the survey's rows;
-- a probe in `smoke_tests/` that re-checks the facts;
-- a dated report in `docs/scout/` that becomes the pull-request body.
-
-Everything is written as `status: draft`; the
-[workflow](.github/workflows/dataset-scout.yml) only ever pushes a branch, so
-nothing is trusted until a person reviews it.
-
-```bash
-pip install -e '.[scout]'
-ADS_API_TOKEN=... python -m scoop.scout --dry-run        # harvest and report; no model, no writes
-ADS_API_TOKEN=... ANTHROPIC_API_KEY=... python -m scoop.scout --max-proposals 2
-```
-
-Design and limits: [docs/dataset_scout.md](docs/dataset_scout.md). Running and
-reviewing a scan: [scoop/skills/meta/dataset_scout.md](scoop/skills/meta/dataset_scout.md).
 
 ## Evaluation and demos
 
@@ -618,7 +575,6 @@ scoop/                the installable package (pip install -e '.[server]')
   exoplanets/         exoplanet archive queries and the exoplanet agent's checks
   literature/         ADS client and records
   runtime/            cost budgets, run_python sandbox (with its Node runner), run_kernel, freshness, triage
-  scout/              the monthly dataset scout                         python -m scoop.scout
   skills/             what each archive holds and how to query it; read by the agents
 web/                  the SvelteKit workspace
 evaluation/           data checks, spot checks, benchmarks, the metrics scorecard (pip install -e '.[eval]')

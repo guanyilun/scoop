@@ -283,7 +283,7 @@ class HandoffTests(unittest.IsolatedAsyncioTestCase):
                                                  "args": {"path": "index"}})
         self.assertIn("SCOOP skills index", good.content)
 
-    async def test_skill_drafts_follow_the_scout_convention_and_never_overwrite(self):
+    async def test_skill_drafts_are_drafts_in_the_index_and_never_overwrite(self):
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory() as tmp:
@@ -304,7 +304,7 @@ class HandoffTests(unittest.IsolatedAsyncioTestCase):
             saved = await run("save_skill_draft", draft)
             self.assertIn("Saved draft skill surveys/nvss", saved.content)
             text = (skills / "surveys" / "nvss.md").read_text()
-            self.assertIn("\nstatus: draft\n", text)  # exactly what the scout's coverage reader expects
+            self.assertIn("\nstatus: draft\n", text)
             self.assertIn("proposed_by: data agent", text)
             index = (skills / "index.md").read_text()
             self.assertIn("| [nvss](surveys/nvss.md) | NVSS 1.4 GHz sources via VizieR *(draft, written by the data agent)* |",

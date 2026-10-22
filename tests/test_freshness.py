@@ -1,11 +1,10 @@
-import json
 import os
 import tempfile
 import time
 import unittest
 from pathlib import Path
 
-from scoop.runtime.freshness import field_freshness, freshness, scout_status
+from scoop.runtime.freshness import field_freshness, freshness
 
 
 class FreshnessTests(unittest.TestCase):
@@ -30,18 +29,15 @@ class FreshnessTests(unittest.TestCase):
         self.assertEqual(out["new_skills"], ["euclid"])
         self.assertTrue(out["worth_mentioning"])
 
-    def test_a_fresh_field_is_not_mentioned_and_the_scout_is_checked(self):
+    def test_a_fresh_field_is_not_mentioned(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             field_path = tmp / "f_field.json"
             field_path.write_text("{}")
-            (tmp / ".scout_state.json").write_text(json.dumps({"last_scan": "2026-01-01"}))
-            now = time.mktime((2026, 1, 11, 0, 0, 0, 0, 0, 0))
-            self.assertFalse(scout_status(tmp, now)["overdue"])
-            self.assertTrue(scout_status(tmp, now + 40 * 86400)["overdue"])
             out = freshness({"tables": {}}, field_path, repo=tmp, now=field_path.stat().st_mtime + 60)
         self.assertFalse(out["field"]["old"])
-        self.assertFalse(scout_status(Path("/nonexistent"))["overdue"])  # unknown, so not nagged about
+        self.assertFalse(out["field"]["worth_mentioning"])
+        self.assertEqual(freshness(None, None), {})
 
 
 if __name__ == "__main__":
