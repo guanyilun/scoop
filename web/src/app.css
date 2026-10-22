@@ -1361,6 +1361,35 @@ body.resizing-y * {
   font-size: 12px;
   margin: 4px 0;
 }
+/* Context catalogues (catalogue HiPS from CDS) in the layers panel. */
+.context-catalogs summary {
+  cursor: pointer;
+  margin: 4px 0;
+}
+.context-catalogs p {
+  font-size: 11px;
+  margin: 2px 0 6px;
+}
+.context-catalogs label.check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+  padding: 2px 0;
+}
+.context-catalogs label.check input {
+  width: auto;
+}
+.context-catalogs .rows {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.context-catalogs .swatch {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex: none;
+}
 .markdown .math {
   overflow-x: auto;
   margin: 4px 0 8px;

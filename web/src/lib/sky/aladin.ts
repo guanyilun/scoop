@@ -22,6 +22,8 @@ export interface AladinAPI {
   init: Promise<unknown>;
   aladin(container: string, options: Record<string, unknown>): AladinViewer;
   catalog(options: Record<string, unknown>): AladinCatalog;
+  // A progressive catalogue served as a HiPS (CDS): drawn tile by tile as the view moves.
+  catalogHiPS?(url: string, options: Record<string, unknown>): AladinCatalog;
   source(ra: number, dec: number, data: Record<string, unknown>): AladinSource;
   graphicOverlay(options: Record<string, unknown>): AladinOverlay;
   circle(ra: number, dec: number, radius: number, options?: Record<string, unknown>): unknown;

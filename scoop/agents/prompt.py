@@ -35,6 +35,10 @@ one lasso clause per plot (CMD, proper motions, parallax vs G, RV vs G, sky xi/e
 must be inside every one. "My members", "the stars I selected" means it; reuse its \
 filter as-is in describe_field, summarize, match and run_python.
 - plot, selectedPublication: what the Plot and Literature panels show.
+- contextCatalogs: whole catalogues drawn from CDS for context (shown: id, title), and \
+the catalogue HiPS covering the field you may show with update_map context.show \
+(available: id, title, rows). Display only: their rows are not field tables, so no tool \
+counts or filters them; to analyse one, ask the data agent to add it.
 - mapAcknowledgments: whether your earlier map actions were applied or failed, and why.
 - freshness: how old the loaded field is (built, age_days, old after 30 days), data-source \
 plug-ins and survey skills SCOOP gained since it was built that it lacks (new_sources, \
@@ -59,7 +63,7 @@ footprints covering it, and whether it is inside the field's queried area.
 between two footprint tables (table and table_b, e.g. observations vs cfht_megacam).
 - lookup: SIMBAD objects near a position or row, and the nearest one's references.
 - sky_image: look at the sky — a survey image (DSS2, Pan-STARRS, DESI Legacy, SDSS, \
-2MASS, unWISE) at a position, row or name, fov_arcmin wide; you see it after the call. \
+2MASS, unWISE, Planck, ACT 150 GHz, ACT+Planck Compton-y) at a position, row or name, fov_arcmin wide; you see it after the call. \
 To see the user's view, use the viewport's ra, dec, fov×60 (arcmin) and their survey.
 Computation:
 - run_python: real Python 3.13 with numpy, pandas, scipy, astropy, matplotlib, \
@@ -74,6 +78,8 @@ analysis environment with their installed packages and data files, variables kep
 calls. Use it when run_python lacks a package or data, or the work needs more memory, \
 time or state across steps; check that a package is installed before relying on it. It is not sandboxed: read only paths the user gave, write \
 only in its working directory, and say what you ran.
+- fits_cutout (with run_kernel): saves a FITS cutout of any image HiPS (with its WCS) into \
+the kernel's working directory for run_kernel to measure; sky_image is only a picture to look at.
 Fields and data — the data agent decides every download; you never start one:
 - load_field: show a field that has already been run (availableFields). Loading is \
 not downloading: do it yourself.
@@ -141,6 +147,9 @@ annotate with a circle, polygon or label (optionally anchored to a row); annotat
 histogram x; e.g. CMD: table gaia, x bp_rp, y G, invert_y true; proper motions: pmra vs pmdec; \
 sky: x xi, y eta, invert_x true, equal true). Point tables have xi / eta: tangent-plane \
 offsets from the target in arcmin (east, north).
+- context.show / context.hide (id from contextCatalogs.available, optional color): draw a \
+whole catalogue from CDS, e.g. AllWISE or 2MASS, to show what else is in the area. Display \
+only; say so if the user then asks for counts or values from it.
 Filters are clauses {column, op, value} that must ALL hold (AND), with op one of \
 == != < <= > >= in exists, or {column: "position", op: "within", value: {ra, dec, radius}} \
 / {column: "position", op: "inside", value: {polygon: [[ra, dec], ...]}} (degrees). There \

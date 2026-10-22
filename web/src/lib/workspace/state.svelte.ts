@@ -24,7 +24,7 @@ export function adsPublications(payload: ADSPayload): Publication[] {
   }));
 }
 
-const emptyMap = (): MapState => ({ layers: [], highlight: null, annotations: [], selection: null, plot: null });
+const emptyMap = (): MapState => ({ layers: [], highlight: null, annotations: [], selection: null, plot: null, context: [] });
 const MAX_UNDO = 50;
 
 // Call once per page/component tree. No module-level mutable state (SSR safe).
@@ -185,10 +185,22 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
       fieldStatus = `${loaded.target.name} · ${loaded.n_rhalf} r_half`;
       moveCamera({ ra: loaded.target.ra, dec: loaded.target.dec, fov: loaded.fov });
       report(commandId, 'applied');
+      void loadContextCatalogs(loaded);
     } catch (error) {
       fieldStatus = `Could not load ${key}: ${errorText(error)}`;
       report(commandId, 'failed', fieldStatus);
     }
+  }
+
+  /** The catalogue HiPS covering a field, for context layers. Never holds up the field: without
+   *  them (the MOC server down, an old server) the map works as before. */
+  async function loadContextCatalogs(loaded: Field) {
+    if (!backend?.listContextCatalogs) return;
+    try {
+      const radius = Math.min(30, Math.max(0.05, loaded.fov / 2));
+      const catalogs = await backend.listContextCatalogs(loaded.target.ra, loaded.target.dec, radius);
+      if (field?.key === loaded.key) field.context_catalogs = catalogs;
+    } catch { /* no context layers for this field */ }
   }
 
   /** Reload the field after it gained or lost tables: keep the map as it is, add the new
@@ -200,6 +212,7 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
       const kept = map.layers.filter((layer) => !layer.table || layer.table in loaded.tables);
       const known = new Set(kept.map((layer) => layer.id));
       const counts = new Map(loaded.layers.map((layer) => [layer.id, layer.count]));
+      loaded.context_catalogs = field.context_catalogs;  // same place, same catalogues
       field = loaded;
       map = { ...map, layers: [...kept.map((layer) => ({ ...layer, count: counts.get(layer.id) ?? layer.count })),
         ...clone(loaded.layers.filter((layer) => !known.has(layer.id)))] };
@@ -276,6 +289,10 @@ export function createWorkspace(backend?: Backend, options: { pollMs?: number } 
               filter: [{ column: 'position', op: 'inside', value: { polygon: a.points } }] }),
       selection: row && Object.fromEntries(Object.entries(row).filter(([k]) => !['polygon', 's_region', '_links'].includes(k))),
       plot: map.plot ?? null,
+      contextCatalogs: {
+        shown: (map.context ?? []).map(({ id, title }) => ({ id, title })),
+        available: (field?.context_catalogs ?? []).slice(0, 20).map(({ id, title, rows }) => ({ id, title, rows })),
+      },
       ...(paper ? { selectedPublication: { id: paper.id, title: paper.title } } : {}),
       mapAcknowledgments: unreported.splice(0)
     };

@@ -15,19 +15,13 @@ import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astropy.time import Time
 
+from ..archives.images import BACKGROUNDS
 from .ids import to_int_id
 
 ALADIN_JS = "https://cdn.jsdelivr.net/npm/aladin-lite@3.8.2/dist/aladin.js"
 
-# HiPS IDs checked against the CDS MOC server (2026-10-19).
-SURVEYS = [
-    ("CDS/P/DSS2/color", "DSS2 color"),
-    ("CDS/P/PanSTARRS/DR1/color-z-zg-g", "Pan-STARRS DR1 color"),
-    ("CDS/P/DESI-Legacy-Surveys/DR10/color", "DESI Legacy Surveys DR10 color"),
-    ("CDS/P/SDSS9/color", "SDSS9 color"),
-    ("CDS/P/2MASS/color", "2MASS color (JHK)"),
-    ("CDS/P/unWISE/color-W2-W1W2-W1", "unWISE color (W1/W2)"),
-]
+# HiPS IDs checked against the CDS MOC server (2026-10-22).
+SURVEYS = BACKGROUNDS
 
 # Dark-surface steps of the reference categorical palette (dataviz skill),
 # since the layers sit on a dark sky image.

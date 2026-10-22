@@ -2,7 +2,7 @@
   import { onMount, untrack } from 'svelte';
   import type { Workspace } from '../workspace/state.svelte';
   import { layerRows, rowsOf } from '../field/actions';
-  import type { Annotation, Field, Layer, Row } from '../field/types';
+  import type { Annotation, ContextLayer, Field, Layer, Row } from '../field/types';
   import { boxFromDrag, circleFromDrag, polygonFromClicks, rowFromClick, wheelFactor, zoomAnchor, type AladinAPI, type AladinLayer, type AladinViewer } from '../sky/aladin';
   let { workspace }: { workspace: Workspace } = $props();
   let A: AladinAPI | null = null;
@@ -17,6 +17,8 @@
   // Aladin objects drawn for each layer, rebuilt only when what they draw changes.
   const drawn = new Map<string, { signature: string; objects: AladinLayer[] }>();
   let extras: AladinLayer[] = [];
+  // Context catalogues (catalogue HiPS from CDS), redrawn only when one's URL or colour changes.
+  const contextDrawn = new Map<string, { signature: string; layer: AladinLayer }>();
 
   function captureViewport() {
     if (!sky) return;
@@ -70,6 +72,24 @@
     }
   }
 
+  function renderContext(context: ContextLayer[]) {
+    if (!A?.catalogHiPS || !sky) return;
+    const keep = new Set(context.map((c) => c.id));
+    for (const catalog of context) {
+      const signature = `${catalog.url} ${catalog.color}`;
+      const entry = contextDrawn.get(catalog.id);
+      if (entry?.signature === signature) continue;
+      if (entry) sky.removeOverlay(entry.layer);
+      const layer = A.catalogHiPS(catalog.url, { name: `${catalog.title} (CDS)`, color: catalog.color,
+        sourceSize: 7, shape: 'circle' });
+      sky.addCatalog(layer);
+      contextDrawn.set(catalog.id, { signature, layer });
+    }
+    for (const [id, entry] of contextDrawn) {
+      if (!keep.has(id)) { sky.removeOverlay(entry.layer); contextDrawn.delete(id); }
+    }
+  }
+
   function renderMarks(field: Field | null, annotations: Annotation[]) {
     if (!A || !sky) return;
     extras.forEach((object) => sky!.removeOverlay(object));
@@ -103,6 +123,10 @@
   $effect(() => {
     const [field, layers] = [workspace.field, workspace.map.layers];
     if (phase === 'ready') untrack(() => renderLayers(field, layers));
+  });
+  $effect(() => {
+    const context = workspace.map.context ?? [];
+    if (phase === 'ready') untrack(() => renderContext(context));
   });
   $effect(() => {
     const [field, , , annotations] = [workspace.field, workspace.map.highlight, workspace.map.selection, workspace.map.annotations];

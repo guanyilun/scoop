@@ -5,6 +5,8 @@ import { SHAPES } from './types';
 import type { Camera, Clause, Field, Layer, MapAction, MapState, Origin, Row, Style } from './types';
 
 const DEFAULT_STYLE: Style = { color: '#ffd84d', shape: 'circle', size: 12, dash: false, hollow: false };
+// Context catalogues are background: muted colours that don't compete with the field's layers.
+const CONTEXT_COLORS = ['#8fa3bf', '#a993c9', '#83b3a6', '#c49f86'];
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 const inSky = (ra: unknown, dec: unknown) => finite(ra) && ra >= 0 && ra < 360 && finite(dec) && dec >= -90 && dec <= 90;
 
@@ -62,6 +64,11 @@ export function checkAction(action: MapAction, field: Field | null, state: MapSt
     case 'annotations.clear':
     case 'plot.hide':
       return null;
+    case 'context.show':
+      if (!field?.context_catalogs?.some((c) => c.id === action.id)) return `catalogue ${action.id} is not available for this field`;
+      return action.color === undefined || /^#[0-9a-fA-F]{6}$/.test(action.color) ? null : 'color must be #rrggbb';
+    case 'context.hide':
+      return state.context?.some((c) => c.id === action.id) ? null : `catalogue ${action.id} is not shown`;
     case 'plot.show': {
       const rows = rowsOf(field, action.table);
       for (const column of [action.x, action.y].filter((c): c is string => c !== undefined)) {
@@ -191,6 +198,14 @@ export function applyAction(action: MapAction, field: Field | null, state: MapSt
       break;
     }
     case 'plot.hide': next.plot = null; break;
+    case 'context.show': {
+      const catalog = field!.context_catalogs!.find((c) => c.id === action.id)!;
+      const shown = (next.context ?? []).filter((c) => c.id !== action.id);
+      const color = action.color ?? CONTEXT_COLORS[shown.length % CONTEXT_COLORS.length];
+      next.context = [...shown, { id: catalog.id, title: catalog.title, url: catalog.url, color, origin }];
+      break;
+    }
+    case 'context.hide': next.context = (next.context ?? []).filter((c) => c.id !== action.id); break;
   }
   return { state: next, camera };
 }

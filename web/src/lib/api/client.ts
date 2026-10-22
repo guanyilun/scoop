@@ -1,6 +1,6 @@
 // Browser side of scoop/server/app.py. Credentials stay on the server.
 import type { Trace } from '../chat/trace';
-import type { Field } from '../field/types';
+import type { ContextCatalog, Field } from '../field/types';
 
 export interface ActionAcknowledgment {
   command_id: string;
@@ -93,6 +93,8 @@ export interface Backend {
   saveSettings(changes: Partial<Record<SettingName, string>>): Promise<SettingsView>;
   // The models an endpoint offers (the saved one when baseUrl is omitted); optional for test doubles.
   listModels?(baseUrl?: string): Promise<ModelInfo[]>;
+  // Catalogue HiPS covering a region (degrees), for context layers; optional for test doubles.
+  listContextCatalogs?(ra: number, dec: number, radius: number): Promise<ContextCatalog[]>;
   getJob(id: string): Promise<JobView>;
   // Budgets: present whenever the server supports them (a test double may leave them out).
   getBudget?(thread: string): Promise<BudgetReport>;
@@ -244,6 +246,12 @@ export function httpBackend(base = '/api', fetcher: typeof fetch = fetch): Backe
       const response = await fetcher(`${base}/models${query}`);
       if (!response.ok) throw new Error(await errorText(response));
       return (await response.json()).models;
+    },
+    async listContextCatalogs(ra, dec, radius) {
+      const query = new URLSearchParams({ ra: String(ra), dec: String(dec), radius: String(radius) });
+      const response = await fetcher(`${base}/context-catalogs?${query}`);
+      if (!response.ok) throw new Error(await errorText(response));
+      return (await response.json()).catalogs;
     },
     async startJob(key, nRhalf = 2) {
       const response = await fetcher(`${base}/jobs`, {

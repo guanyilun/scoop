@@ -16,6 +16,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from ..archives.images import BACKGROUNDS
 from .spatial import polygon_contains, project, separation_deg
 
 OPS = ("==", "!=", "<", "<=", ">", ">=", "in", "exists", "within", "inside", "lasso")
@@ -159,6 +160,12 @@ def _columns(rows: list[dict]) -> list[str]:
     return [n for n in names if n not in ("id", "polygon") and not n.startswith("_")]
 
 
+def with_backgrounds(surveys: list) -> list:
+    """A field's stored background list, plus backgrounds added since it was built."""
+    known = {s[0] for s in surveys}
+    return [list(s) for s in surveys] + [list(s) for s in BACKGROUNDS if s[0] not in known]
+
+
 def field_from_viewer_data(data: dict) -> dict:
     """Build a field from pipeline output with every registered data source.
 
@@ -203,7 +210,7 @@ def field_from_viewer_data(data: dict) -> dict:
              "tables": tables,
              # Data-source summaries (e.g. MAST imaging coverage), shown in the Summary tab.
              "summaries": [{"source": s.name, **summary} for s in present for summary in s.summaries(rows[s.name], data)],
-             "decisions": data["decisions"], "surveys": data["surveys"]}
+             "decisions": data["decisions"], "surveys": with_backgrounds(data["surveys"])}
     layers = [layer for source in present for layer in source.layers(rows[source.name], data)]
     for i, (name, stored) in enumerate(sorted((data.get("extra") or {}).items())):
         meta = stored.get("meta") if isinstance(stored, dict) else None
