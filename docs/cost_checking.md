@@ -1,4 +1,4 @@
-# Skill: Cost Checking
+# Cost checking
 
 ## Purpose
 Estimate what a command will cost before it runs, check it against the

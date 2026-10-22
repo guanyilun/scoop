@@ -131,6 +131,11 @@ Relay its numbers with errors, the assumptions it lists for the user to confirm 
 confirm position errors or floors for them), its comparisons with citations, then show \
 what it suggests (plot.show the CMD or proper motions; its layer is already on the map, \
 don't re-add it).
+Knowledge:
+- read_skill: SCOOP's skills (listed at the end): what data exist and where, which \
+versions and files are official, gotchas and defaults (e.g. surveys/act for ACT maps, \
+astrometry/proper_motions). Read the relevant one before advising on a survey's data \
+or analysis; the sub-agents read their own.
 Literature (NASA ADS):
 - ads_search (ADS query syntax, e.g. abs:"Draco" year:2020-2026), ads_paper (abstract \
 by bibcode, DOI or arXiv id), ads_citations (citing or cited papers).

@@ -23,11 +23,10 @@ from pydantic import Field
 from ..archives import discovery, gaia_estimate
 from ..science.fields import field_region
 from .region_tools import CONFIRM_ABOVE
+from .skills import SKILLS_DIR, build_read_skill, with_skills
 from .subagent import attach, run_subagent
 from .tools import publish_result, tool_error
 
-SKILLS_DIR = Path(__file__).resolve().parents[1] / "skills"
-MAX_SKILL_CHARS = 15000
 MAX_DRAFT_CHARS = 12000
 MAX_STEPS = 16  # data-agent tool steps per hand-off
 NAME = re.compile(r"[a-z][a-z0-9_]{1,39}")
@@ -90,7 +89,7 @@ SCOOP bug with the error, the function and line from the traceback, and the inpu
 # Data for the loaded field
 
 # Tools
-- read_skill: SCOOP's skills. Start with read_skill("index"): if a skill covers the \
+- read_skill: SCOOP's skills (listed at the end of these instructions). If a skill covers the \
 survey, follow it (e.g. "surveys/sdss_spectra", "surveys/mast_hst_jwst"). For a survey \
 with no skill, read "meta/new_survey_skill" and follow its procedure and best practices.
 - survey_inventory: every catalog and image survey whose sky coverage overlaps the \
@@ -233,17 +232,7 @@ def build_data_tools(*, field: dict, store_rows, added: list[str], skills_dir: P
                           "measurements": measurements or "none recognised (pass roles if it has RVs or [Fe/H])"})
                    + note, tool_call_id)
 
-    @tool
-    async def read_skill(path: str, tool_call_id: Annotated[str, InjectedToolCallId]):
-        """Read one of SCOOP's skills: "index" (the list), or a path from it without
-        ".md", e.g. "surveys/gaia", "meta/new_survey_skill"."""
-        target = (skills_dir / f"{path.strip().strip('/')}.md").resolve()
-        if not target.is_relative_to(skills_dir.resolve()) or not target.is_file():
-            names = sorted(str(p.relative_to(skills_dir))[:-3] for p in skills_dir.rglob("*.md"))
-            return tool_error(f"No skill {path!r}. Available: {names}", tool_call_id)
-        text = target.read_text()
-        cut = f"\n[... truncated at {MAX_SKILL_CHARS} characters]" if len(text) > MAX_SKILL_CHARS else ""
-        return _ok(text[:MAX_SKILL_CHARS] + cut, tool_call_id)
+    read_skill = build_read_skill(skills_dir)
 
     @tool
     async def save_skill_draft(
@@ -611,7 +600,7 @@ def build_handoff_tool(*, model, field, store_rows, skills_dir: Path = SKILLS_DI
             "region": field_region(field),
             "tables": {n: {"label": t["label"], "provenance": t["provenance"], "rows": len(t["rows"])}
                        for n, t in field["tables"].items()}}}
-        result = await run_subagent(model, tools, DATA_AGENT_PROMPT,
+        result = await run_subagent(model, tools, with_skills(DATA_AGENT_PROMPT, skills_dir),
                                     f"{request}\n<context>{json.dumps(context, default=str)}</context>",
                                     max_steps=MAX_STEPS, name="data agent")
         started = [p["key"] for p in result.artifacts.values() if p.get("kind") == "field_job"]

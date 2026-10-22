@@ -301,7 +301,11 @@ how to check coverage and cost before downloading, how to query it, its
 gotchas, the default decisions the agent makes, and how it explains them to
 the user (e.g. "Skipping Gaia RVS spectra: they only exist for bright stars,
 and the members of this galaxy are much fainter. Say 'include Gaia RVS' to
-override."). See [scoop/skills/index.md](scoop/skills/index.md).
+override."). Every agent (chat, data, proper motions) sees the list of skills and reads
+one in full with `read_skill` when a request needs it; a sub-agent's prompt says how to use
+its tools, and its domain knowledge lives in a skill. See
+[scoop/skills/README.md](scoop/skills/README.md) for when something is a skill, a tool or a
+sub-agent, and [scoop/skills/index.md](scoop/skills/index.md) for the list.
 
 Splitting the work this way means:
 
@@ -350,7 +354,7 @@ one to the field when it needs analysing.
 
 Backgrounds include Planck (HFI dust colour, CMB) and ACT (150 GHz, and the ACT+Planck
 Compton-y map for SZ clusters). These are CDS quick-look copies of the maps. For measurements
-on ACT data, the skill [`surveys/act`](scoop/skills/surveys/act.md) points the agent to the
+on ACT data, the skill [`surveys/act`](scoop/skills/surveys/act.md) points the agents to the
 official DR6.02 maps and the needlet-ILC y maps on LAMBDA.
 
 Server options: `python -m scoop.server --help` (port, where fields, settings,
@@ -419,7 +423,7 @@ self-hosted endpoint that is not listed online needs
 python -m scoop.runtime.cost "Summarize this abstract" claude-opus-5-5   # one estimate
 ```
 
-Playbook: [scoop/skills/cost-checking.skill.md](scoop/skills/cost-checking.skill.md).
+Playbook: [docs/cost_checking.md](docs/cost_checking.md).
 
 ## Dataset scout
 

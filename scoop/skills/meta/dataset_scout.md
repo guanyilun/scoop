@@ -4,7 +4,7 @@ description: The monthly scan for datasets SCOOP is missing or has gone stale
   on. Read this to run a scan, to review what a scan produced, or to change what
   it looks for. It is the scheduled, automated counterpart of new_survey_skill.
 used_by: [operations, orchestrator]
-exemplars: [meta/new_survey_skill.md, cost-checking.skill.md]
+exemplars: [meta/new_survey_skill.md]
 ---
 
 # The dataset scout

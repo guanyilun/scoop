@@ -86,6 +86,11 @@ class PmAgentTests(unittest.IsolatedAsyncioTestCase):
                 self.assertNotRegex(WORKSPACE_PROMPT, rf"\b{name}\b")  # the chat agent no longer calls them
         self.assertRegex(WORKSPACE_PROMPT, r"\bask_pm_agent\b")
 
+    def test_the_pm_agent_reads_its_skill(self):
+        from scoop.agents.skills import with_skills
+        self.assertRegex(PM_AGENT_PROMPT, r"read_skill.*astrometry/proper_motions")
+        self.assertIn("- astrometry/proper_motions", with_skills(PM_AGENT_PROMPT))
+
 
 if __name__ == "__main__":
     unittest.main()

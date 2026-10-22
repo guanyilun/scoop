@@ -29,6 +29,7 @@ from starlette.routing import Route
 
 from ..agents import build_chat_graph
 from ..agents.prompt import WORKSPACE_PROMPT
+from ..agents.skills import build_read_skill, with_skills
 from ..archives import gaia_estimate
 from ..agents.data_agent import FIELD_TOOLS, build_estimate_tool, build_handoff_tool, size_gated
 from ..agents.exoplanet_agent import build_exoplanet_tool
@@ -616,21 +617,22 @@ def create_app(
         pm_tools = build_pm_tools(field=current_field, lvdb_cache=Path(fields.root) / "lvdb_cache" if fields else None,
                                   layers=layers, known_layers=known_layers)
         web_tools = build_web_tools(*web) if web else []
+        read_skill = build_read_skill()
         pm_handoff = build_pm_handoff_tool(model=model, field=current_field, layers=layers, tools=[
-            *pm_tools, *(t for t in map_tools if t.name in FIELD_READ_TOOLS), *ads_tools(),
+            *pm_tools, read_skill, *(t for t in map_tools if t.name in FIELD_READ_TOOLS), *ads_tools(),
             *(t for t in web_tools if t.name == "web_fetch")])
         map_tools = [t for t in map_tools if t.name not in FIELD_TOOLS]
         # Exoplanet questions go to the fact-checked exoplanet agent, on the chat's model.
         exoplanet = build_exoplanet_tool(field=current_field, model=model)
-        tools = [*map_tools, handoff, pm_handoff, exoplanet, *ads_tools(), *web_tools,
+        tools = [*map_tools, handoff, pm_handoff, exoplanet, read_skill, *ads_tools(), *web_tools,
                  *(build_python_tools(python, current_field) if python else []),
                  *(build_kernel_tools(live["kernel"], current_field, fetch_fits) if live["kernel"] else []),
                  *(extra_tools() if extra_tools else [])]
-        graph = build_chat_graph(model, tools, checkpointer=checkpointer,
-                                 system_prompt=WORKSPACE_PROMPT)
+        system_prompt = with_skills(WORKSPACE_PROMPT)
+        graph = build_chat_graph(model, tools, checkpointer=checkpointer, system_prompt=system_prompt)
         # What rides along with the user's text on every model call this turn, and so has to be
         # costed with it: the system prompt, every tool's schema, and the workspace context.
-        overhead = (estimate_tokens(WORKSPACE_PROMPT) + estimate_tokens(json.dumps(context, default=str))
+        overhead = (estimate_tokens(system_prompt) + estimate_tokens(json.dumps(context, default=str))
                     + sum(estimate_tokens(f"{getattr(tool, 'name', '')}{getattr(tool, 'description', '') or ''}"
                                           f"{json.dumps(getattr(tool, 'args', {}), default=str)}")
                           for tool in tools))

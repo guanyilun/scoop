@@ -1,6 +1,7 @@
 # SCOOP skills index
 
-Agents read this index first, then load only the skills a request needs.
+Every agent's instructions list these skills by name and description; agents load only
+the ones a request needs (read_skill). This index groups them by topic.
 Each skill describes what a source holds (and doesn't), how to check coverage
 and cost before downloading, how to query it, its gotchas, the default
 decisions an agent makes and what it tells the user about them, and how to
@@ -8,7 +9,7 @@ cite it.
 
 Whatever skill is used, every record an agent returns must carry its
 provenance (archive, native ID, position, footprint, query, access URL) so the
-evaluation checks in [`evaluation/`](../evaluation/README.md) can verify it against the
+evaluation checks in [`evaluation/`](../../evaluation/README.md) can verify it against the
 archive.
 
 ## Surveys and archives (`surveys/`)
@@ -33,13 +34,6 @@ archive.
 | Skill | Use it for |
 |---|---|
 | [stsci_proposals](literature/stsci_proposals.md) | The HST and JWST programs behind observations in a region: why they were proposed, status, and what came of them |
-
-## Operations (cost and metrics)
-
-| Skill | Use it for |
-|---|---|
-| [cost-checking](cost-checking.skill.md) | Estimating a request's cost, checking it against a budget, and calibrating estimates from actual usage (`scoop/runtime/cost.py`) |
-| [metrics-scorecard](metrics-scorecard.skill.md) | Pipeline metrics and the weekly scorecard (`scripts/metrics_scorecard.py`) |
 
 ## Writing new skills (`meta/`)
 
