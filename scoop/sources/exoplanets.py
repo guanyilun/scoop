@@ -1,7 +1,7 @@
 """Confirmed planet hosts (NASA Exoplanet Archive), queried on demand.
 
 Uses Xuan Ji's ``scoop/exoplanets/archive.py`` cone search (plain functions, no agent
-harness; synchronous, with its record/replay HTTP layer), run in a worker thread.
+harness; synchronous), run in a worker thread.
 Each host carries its planets (parameters and discovery paper) for the Selected panel.
 """
 from __future__ import annotations
@@ -14,7 +14,8 @@ from . import Column, Source, detail, layer, register
 MAX_RADIUS_ARCMIN = 60  # the cone search's own limit
 OVERVIEW_URL = "https://exoplanetarchive.ipac.caltech.edu/overview/"
 ADS_URL = "https://ui.adsabs.harvard.edu/abs/"
-# pscomppars' pl_bmassprov: over a third of masses are not measured but estimated from the radius.
+# pscomppars' pl_bmassprov: nearly half of masses (3,035 of 6,451 on 2026-10-22) are estimated
+# from the radius, not measured; see skill surveys/exoplanets_tess.
 MASS_TYPE = {"Mass": "measured", "Msini": "minimum (M sin i)", "Msin(i)/sin(i)": "measured (M sin i / sin i)",
              "M-R relationship": "estimated from radius"}
 

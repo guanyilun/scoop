@@ -109,7 +109,7 @@ tables share columns tel, inst, year, date, exptime, wavelength_nm, program wher
 archive gives them. New point tables are matched to Gaia stars (gaia gets an \
 in_<table> column, and clicking a star shows its entries); URL columns become links in \
 the Selected panel. Gravitational-wave localizations can't be checked yet; say so.
-- ask_exoplanet_agent: exoplanet questions (planets, their properties and papers, TOIs, TESS \
+- ask_exoplanet_agent (skill surveys/exoplanets_tess): exoplanet questions (planets, their properties and papers, TOIs, TESS \
 light curves, short-cadence candidates) and constraints on exoplanet_hosts, tess_tois or tic \
 ("habitable", "atmosphere claimed"). Show its answer word for word, with its checked line; do \
 not retell or add to it. If it asks the user to define a constraint or confirm criteria, wait \

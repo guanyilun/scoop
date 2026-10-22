@@ -9,8 +9,7 @@
   by fixed, adjustable criteria (past coverage only: future pointings are not checked).
 
 Sources: MAST (CAOM) for TESS observations and light curves; VizieR (IV/39/tic82,
-TIC v8.2) for the TIC. HTTP goes through archive.http_get, so responses can be
-recorded and replayed like the archive's.
+TIC v8.2) for the TIC. HTTP goes through archive.http_get.
 """
 
 from __future__ import annotations

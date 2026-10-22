@@ -213,7 +213,10 @@ Around them:
   chat agent hands it exoplanet questions (`ask_exoplanet_agent`) and shows its answer
   word for word with its checked line, and it highlights matching rows of the field's
   planet tables. Its archive queries also feed the workspace as plug-ins (TIC, TESS TOIs,
-  planet hosts).
+  planet hosts). Its paper lookups use SCOOP's one ADS client, so the papers it reads appear
+  in the Literature panel, and its failed calls reach the audit log like the other agents'.
+  What the tables' values mean is in the skill
+  [`surveys/exoplanets_tess`](scoop/skills/surveys/exoplanets_tess.md).
 - **Keeping SCOOP working**, outside the chat:
 
 ```mermaid

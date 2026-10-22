@@ -86,6 +86,17 @@ say which planets failed and why) and the rows to highlight on the map:
 table is one of {", ".join(f"{t} (id: {d})" for t, d in HIGHLIGHT_TABLES.items())}; use ids exactly \
 as a tool returned them.
 
+Background (from SCOOP's skill surveys/exoplanets_tess; guidance only, never a source to \
+cite or quote):
+- The archive's planet values (pscomppars) are filled in from several papers per planet and \
+may not be self-consistent; for a self-consistent set, cite the paper.
+- A planet's mass_type says what its mass is: "Mass" (measured), "Msini" (a minimum mass), \
+or "M-R relationship" (estimated from the radius, not measured). Say which whenever you give \
+a mass.
+- A TOI is a candidate: give its disposition. Archive positions are at epoch 2016.
+- TESS pixels are 21 arcsec, so neighbours blend in (Rcont); full-frame light curves are \
+ready-made only for bright enough stars, and the light-curve tools say which.
+
 Your answer is checked in code before the user sees it; anything that fails is sent back \
 to you to fix."""
 
@@ -185,16 +196,26 @@ async def run(graph, messages: list, max_steps: int) -> tuple[str, list, bool]:
 
 
 async def ask(question: str, model: Any, tools: list | None = None, max_steps: int = 12,
-              retries: int = 1, context: str | None = None, criteria: str | None = None) -> CheckedAnswer:
+              retries: int = 1, context: str | None = None, criteria: str | None = None,
+              ads: Any = None) -> CheckedAnswer:
     """Answer `question` with `model` (a LangChain chat model), check the answer, and send
     failures back `retries` times.
 
     `context` describes the user's field (center, radius, tables); `criteria` are constraints
     the user has confirmed. Without confirmed criteria, a request with constraints gets a
-    proposal back, to show the user and confirm."""
+    proposal back, to show the user and confirm. `ads` is SCOOP's ADS client (the server's);
+    without it, and without `tools`, one is opened for this question from ADS_API_TOKEN."""
     if tools is None:
         from .tools import agent_tools
-        tools = agent_tools()
+        if ads is None:
+            from ..literature.ads import ADSClient
+            async with ADSClient() as own:
+                return await _ask(question, model, agent_tools(own), max_steps, retries, context, criteria)
+        tools = agent_tools(ads)
+    return await _ask(question, model, tools, max_steps, retries, context, criteria)
+
+
+async def _ask(question, model, tools, max_steps, retries, context, criteria) -> CheckedAnswer:
     # Tool results stay whole after a retry note: the quotes are checked against them.
     graph = build_chat_graph(model, list(tools), system_prompt=SYSTEM, old_result_chars=None)
     answer, messages, done = await run(graph, [HumanMessage(content=request_text(question, context, criteria))],

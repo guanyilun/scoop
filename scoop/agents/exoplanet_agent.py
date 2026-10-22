@@ -16,6 +16,7 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import InjectedToolCallId, tool
 
 from ..science.fields import field_region
+from .subagent import SubagentResult, attach, failures
 from .tools import publish_result
 
 TABLES = ("exoplanet_hosts", "tess_tois", "tic")
@@ -43,9 +44,19 @@ def relay_text(answer) -> str:
     return "\n\n".join(part for part in (answer.text, status) if part)
 
 
-def build_exoplanet_tool(*, field, model):
+def papers_found(messages: list) -> dict:
+    """The ADS results the agent's paper tools got, by tool call: published, they reach the
+    Literature panel as the chat agent's ADS calls do."""
+    from langchain_core.messages import ToolMessage
+
+    return {m.tool_call_id: m.artifact for m in messages if isinstance(m, ToolMessage)
+            and isinstance(m.artifact, dict) and m.artifact.get("service") == "ADS"}
+
+
+def build_exoplanet_tool(*, field, model, ads=None):
     """``field`` is the field or a function returning the turn's field; ``model`` is the
-    chat's LangChain model (the agent runs its own loop on it), or None."""
+    chat's LangChain model (the agent runs its own loop on it), or None; ``ads`` is the
+    server's ADS client, which the agent's paper lookups use."""
     current_field = field if callable(field) else (lambda: field)
 
     @tool
@@ -68,7 +79,7 @@ def build_exoplanet_tool(*, field, model):
         current = current_field()
         context = field_context(current) if current else None
         try:
-            answer = await ask(question, model, context=context, criteria=criteria)
+            answer = await ask(question, model, context=context, criteria=criteria, ads=ads)
         except Exception as exc:  # a model or network failure is an outcome to report
             return ToolMessage(content=f"The exoplanet agent failed ({type(exc).__name__}: {exc}); say so.",
                                tool_call_id=tool_call_id, status="error")
@@ -85,9 +96,10 @@ def build_exoplanet_tool(*, field, model):
             if highlight:
                 summary += (f"\n\n(Not highlighted: table {highlight['table']} is not in the field; "
                             "add it with add_data, then ask again.)")
-        return publish_result(tool_call_id, tool_call_id, payload, summary)
+        return attach(publish_result(tool_call_id, tool_call_id, payload, summary),
+                      SubagentResult(text, papers_found(answer.messages), failures(answer.messages)))
 
     return ask_exoplanet_agent
 
 
-__all__ = ["build_exoplanet_tool", "field_context", "relay_text"]
+__all__ = ["build_exoplanet_tool", "field_context", "papers_found", "relay_text"]

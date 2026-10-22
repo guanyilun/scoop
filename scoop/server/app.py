@@ -623,7 +623,7 @@ def create_app(
             *(t for t in web_tools if t.name == "web_fetch")])
         map_tools = [t for t in map_tools if t.name not in FIELD_TOOLS]
         # Exoplanet questions go to the fact-checked exoplanet agent, on the chat's model.
-        exoplanet = build_exoplanet_tool(field=current_field, model=model)
+        exoplanet = build_exoplanet_tool(field=current_field, model=model, ads=live["ads"])
         tools = [*map_tools, handoff, pm_handoff, exoplanet, read_skill, *ads_tools(), *web_tools,
                  *(build_python_tools(python, current_field) if python else []),
                  *(build_kernel_tools(live["kernel"], current_field, fetch_fits) if live["kernel"] else []),
