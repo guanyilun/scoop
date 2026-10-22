@@ -1,7 +1,7 @@
 """Confirmed planet hosts (NASA Exoplanet Archive), queried on demand.
 
 Uses Xuan Ji's ``scoop/exoplanets/archive.py`` cone search (plain functions, no agent
-harness; synchronous, with its record/replay HTTP layer), run in a worker thread.
+harness; synchronous), run in a worker thread.
 Each host carries its planets (parameters and discovery paper) for the Selected panel.
 """
 from __future__ import annotations

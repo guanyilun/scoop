@@ -9,13 +9,6 @@ query, access_url, retrieved_at), so the team's checks can run on it.
 Services (checked live on 2026-10-19; what their values mean: skill surveys/exoplanets_tess):
   - Sesame (CDS) name resolver, XML output
   - NASA Exoplanet Archive TAP, table pscomppars (one row per confirmed planet)
-
-HTTP goes through `http_get`, which can record responses to exoplanets/fixtures/
-and replay them, so tests and offline examples run without the network:
-
-    SCOOP_HTTP=live    (default) query the services
-    SCOOP_HTTP=record  query the services and save each response
-    SCOOP_HTTP=replay  only read saved responses; fail if one is missing
 """
 
 from __future__ import annotations

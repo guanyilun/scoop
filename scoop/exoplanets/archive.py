@@ -4,21 +4,15 @@ Split out of tools.py so they can be used without the agent's tools (the SCOOP
 workspace's exoplanet data source calls exoplanet_cone_search). tools.py wraps
 these as LangChain tools, unchanged in behavior: an ArchiveError becomes the
 error result the model sees.
-
-HTTP goes through `http_get`, which can record responses to exoplanets/fixtures/
-and replay them (SCOOP_HTTP=live|record|replay); see tools.py.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import math
-import os
 import re
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
-from pathlib import Path
 from urllib.parse import quote
 
 import requests
@@ -31,7 +25,6 @@ class ArchiveError(Exception):
 SESAME_URL = "https://cds.unistra.fr/cgi-bin/nph-sesame/-oxp/SNV"
 TAP_URL = "https://exoplanetarchive.ipac.caltech.edu/TAP/sync"
 ARCHIVE = "NASA Exoplanet Archive (pscomppars)"
-FIXTURES = Path(__file__).resolve().parent / "fixtures"
 TIMEOUT_S = 60
 MAX_RADIUS_ARCMIN = 60  # larger cones are allowed by the archive, but rarely what the user wants
 ARCHIVE_EPOCH = 2016.0  # archive positions match J2000 + proper motion x ~16 yr (TRAPPIST-1, Proxima Cen)
@@ -44,16 +37,8 @@ REFNAME_RE = re.compile(r">([^<]+)</a>")
 
 
 def http_get(url: str, params: dict, post: bool = False) -> str:
-    """GET (or POST) `url` and return the body, live or from a saved fixture
-    (see module docstring)."""
-    mode = os.environ.get("SCOOP_HTTP", "live")
-    key = hashlib.sha256(json.dumps([url, params], sort_keys=True).encode()).hexdigest()[:16]
-    fixture = FIXTURES / f"{key}.json"
-    if mode == "replay":
-        if not fixture.exists():
-            raise ArchiveError(f"No saved response for this query (fixture {key}). "
-                            "Run once with SCOOP_HTTP=record to save it.")
-        return json.loads(fixture.read_text())["body"]
+    """GET (or POST) `url` and return the body; failures become ArchiveErrors that say
+    what to tell the user."""
     try:
         if post:
             response = requests.post(url, data=params, timeout=TIMEOUT_S)
@@ -68,10 +53,6 @@ def http_get(url: str, params: dict, post: bool = False) -> str:
         raise ArchiveError(f"Request to {url} failed ({type(e).__name__}"
                         f"{f', HTTP {status}' if status else ''}). Report that this "
                         "service is unavailable rather than answering from memory.")
-    if mode == "record":
-        FIXTURES.mkdir(exist_ok=True)
-        fixture.write_text(json.dumps({"url": url, "params": params, "body": response.text},
-                                      indent=1))
     return response.text
 
 
