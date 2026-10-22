@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from scoop.archives import discovery
 from scoop.archives.discovery import catalog_hips
 from scoop.archives.images import fits_params
 
@@ -44,24 +45,47 @@ class FakeResponse:
 
 
 class CatalogHipsTests(unittest.TestCase):
+    def setUp(self):
+        discovery._host_checks.clear()
+
+    def moc(self, up=("hipscat.cds.unistra.fr", "axel.u-strasbg.fr")):
+        """A fake requests.get: the MOC server's records, and properties files on the hosts that are up."""
+        self.sent, self.probed = [], []
+
+        def get(url, params=None, timeout=None):
+            if params is not None:
+                self.sent.append(params)
+                return FakeResponse([SMALL, IMAGE, HTTP_ONLY, GAIA, {"ID": None}])
+            self.probed.append(url)
+            if url.split("/")[2] not in up:
+                raise TimeoutError("connect timed out")
+            return type("Response", (), {"status_code": 200})()
+
+        return get
+
     def test_catalogue_hips_over_https_widest_first(self):
-        sent = []
-
-        def get(url, params, timeout):
-            sent.append(params)
-            return FakeResponse([SMALL, IMAGE, HTTP_ONLY, GAIA, {"ID": None}])
-
-        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=get)
+        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc())
+        sent = self.sent
         self.assertEqual([c["id"] for c in found], ["CDS/I/355/gaiadr3", "CDS/J/ApJ/1/1/table1"])
         self.assertEqual(found[0], {"id": "CDS/I/355/gaiadr3", "title": "Gaia DR3 (Gaia Collaboration, 2022)",
                                     "url": "https://hipscat.cds.unistra.fr/HiPSCatService/I/355/gaiadr3",
                                     "rows": 1811709771, "sky_fraction": 1.0})
         self.assertEqual(sent[0]["dataproduct_type"], "catalog")
+        self.assertEqual(len(self.probed), 1)  # one check per host, not per catalogue
+
+    def test_an_unreachable_host_is_replaced_by_the_cds_mirror(self):
+        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc(up=("axel.u-strasbg.fr",)))
+        self.assertEqual([c["url"] for c in found], ["https://axel.u-strasbg.fr/HiPSCatService/I/355/gaiadr3",
+                                                     "https://axel.u-strasbg.fr/HiPSCatService/J/ApJ/1/1/table1"])
+
+    def test_with_neither_host_answering_the_listed_url_is_kept(self):
+        found = catalog_hips({"ra": 260.05, "dec": 57.92, "radius_deg": 0.5}, http=self.moc(up=()))
+        self.assertTrue(found[0]["url"].startswith("https://hipscat.cds.unistra.fr/"))
 
 
 class FitsParamsTests(unittest.TestCase):
     def test_any_hips_and_wide_projections(self):
-        params = fits_params(10.68, 41.27, 20.0, "CDS/P/PLANCK/R3/HFI/all/857", 2000, "CAR")
+        params = fits_params(10.68, 41.27, 20.0, "CDS/P/PLANCK/R3/HFI857", 2000, "CAR")
         self.assertEqual((params["format"], params["width"], params["projection"]), ("fits", 2000, "CAR"))
 
     def test_bad_requests_are_refused(self):
@@ -92,13 +116,13 @@ class FitsCutoutToolTests(unittest.TestCase):
             kernel = type("Kernel", (), {"cwd": Path(tmp)})()
             tools = {t.name: t for t in build_kernel_tools(kernel, None, fetch)}
             message = asyncio.run(tools["fits_cutout"].ainvoke({"type": "tool_call", "name": "fits_cutout", "id": "c1", "args": {
-                "hips": "CDS/P/PLANCK/R3/HFI/all/857", "ra": 10.68, "dec": 41.27, "fov_deg": 20, "projection": "CAR"}}))
+                "hips": "CDS/P/PLANCK/R3/HFI857", "ra": 10.68, "dec": 41.27, "fov_deg": 20, "projection": "CAR"}}))
             result = json.loads(message.content)
             self.assertEqual(Path(result["path"]).read_bytes(), data)
-            self.assertTrue(result["relative_path"].startswith("cutouts/CDS_P_PLANCK"))
+            self.assertTrue(result["relative_path"].startswith("cutouts/CDS_P_PLANCK_R3_HFI857"))
         self.assertEqual(result["header"], {"NAXIS1": 1000.0, "NAXIS2": 1000.0, "CTYPE1": "RA---CAR",
                                             "CTYPE2": "DEC--CAR", "CRVAL1": 10.68, "CDELT2": 0.02, "BUNIT": "MJy/sr"})
-        self.assertEqual(asked[0]["hips"], "CDS/P/PLANCK/R3/HFI/all/857")
+        self.assertEqual(asked[0]["hips"], "CDS/P/PLANCK/R3/HFI857")
 
     def test_bad_ids_and_failures_are_errors_and_the_tool_needs_a_fetcher(self):
         async def down(params):

@@ -23,8 +23,8 @@
   // Whole catalogues from CDS covering the field, drawn for context (catalogue HiPS).
   const contextCatalogs = $derived(field?.context_catalogs ?? []);
   const shownContext = $derived(new Map((workspace.map.context ?? []).map((c) => [c.id, c])));
-  const rowCount = (n: number | null) => n === null ? '' : n >= 1e9 ? `${(n / 1e9).toPrecision(2)} B` : n >= 1e6
-    ? `${(n / 1e6).toPrecision(2)} M` : n >= 1e3 ? `${(n / 1e3).toPrecision(2)} k` : String(n);
+  const compact = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });  // 910M, 1.8B
+  const rowCount = (n: number | null) => (n === null ? '' : compact.format(n));
   function toggleContext(id: string, on: boolean) {
     workspace.request([on ? { type: 'context.show', id } : { type: 'context.hide', id }], 'user');
   }
@@ -211,7 +211,7 @@
         <label class="check" title={catalog.id}>
           <input type="checkbox" checked={!!shown} onchange={(e) => toggleContext(catalog.id, e.currentTarget.checked)} />
           {#if shown}<span class="swatch" style:background={shown.color}></span>{/if}
-          <span>{catalog.title}</span>{#if catalog.rows !== null}<small class="muted"> {rowCount(catalog.rows)}</small>{/if}
+          <span>{catalog.title}</span>{#if catalog.rows !== null}<small class="muted rows" title="rows">{rowCount(catalog.rows)}</small>{/if}
         </label>
       {/each}
     </details>

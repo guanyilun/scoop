@@ -22,7 +22,7 @@ SURVEYS = {
     "CDS/P/unWISE/color-W2-W1W2-W1": "unWISE mid-infrared color (W1/W2)",
 }
 SIZE = 512  # pixels; enough detail for morphology, small enough to keep cost down
-# FITS cutouts: any image HiPS by its CDS id (e.g. CDS/P/DSS2/red, CDS/P/PLANCK/R3/HFI/all/857).
+# FITS cutouts: any image HiPS by its CDS id (e.g. CDS/P/DSS2/red, CDS/P/PLANCK/R3/HFI857).
 HIPS_ID = re.compile(r"[A-Za-z0-9_.+-]{1,64}(/[A-Za-z0-9_.+-]{1,64}){1,8}")
 PROJECTIONS = ("TAN", "SIN", "CAR", "ZEA", "AIT", "MOL")  # CAR suits wide fields and CMB-style maps
 MAX_PIXELS = 4000  # per side; ~64 MB of float32 at most
@@ -68,7 +68,12 @@ def fits_fetcher(client):
 
     async def fetch(params: dict) -> bytes:
         response = await client.get(HIPS2FITS, params=params, timeout=180.0)
-        response.raise_for_status()
+        if response.status_code >= 400:  # e.g. {"title": "Unknown HiPS", "description": "..."}
+            try:
+                detail = response.json().get("description") or response.json().get("title")
+            except ValueError:
+                detail = response.text[:200]
+            raise ValueError(f"hips2fits refused the request ({response.status_code}): {detail}")
         if not response.content.startswith(b"SIMPLE"):
             raise ValueError("hips2fits did not return a FITS file: " + response.text[:200])
         return response.content

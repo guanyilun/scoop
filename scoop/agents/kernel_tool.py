@@ -91,7 +91,7 @@ def build_kernel_tools(kernel, field=None, fetch_fits=None) -> list[BaseTool]:
         """Save a square FITS cutout of any image HiPS (CDS hips2fits) into the kernel's
         working directory, with its WCS, for run_kernel to load and measure (e.g. with
         astropy.io.fits and astropy.wcs). hips is a CDS HiPS id such as CDS/P/DSS2/red,
-        CDS/P/2MASS/K or a Planck map; survey_inventory (via the data agent) lists those
+        CDS/P/2MASS/K or CDS/P/PLANCK/R3/HFI857; survey_inventory (via the data agent) lists those
         covering the field. TAN suits small fields; CAR or ZEA suit wide ones. Pixel values
         are the HiPS's own (check BUNIT); a HiPS is a resampled mosaic, so use the survey's
         own maps for precise photometry. Returns the file path and the header's WCS."""

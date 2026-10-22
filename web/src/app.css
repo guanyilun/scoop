@@ -1380,6 +1380,10 @@ body.resizing-y * {
 .context-catalogs label.check input {
   width: auto;
 }
+.context-catalogs .rows {
+  margin-left: auto;
+  white-space: nowrap;
+}
 .context-catalogs .swatch {
   width: 9px;
   height: 9px;

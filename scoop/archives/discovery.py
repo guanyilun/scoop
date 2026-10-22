@@ -247,6 +247,37 @@ def survey_inventory(region: dict, per_regime: int = 8, http=None) -> dict:
                             "services (e.g. MAST, CADC, HEASARC) for complete inventories"]}
 
 
+# The MOC server lists every catalogue HiPS at hipscat.cds.unistra.fr; CDS also serves them
+# from axel.u-strasbg.fr. On 2026-10-22 hipscat did not answer from some networks while axel
+# did, so the browser is given whichever answers here (the server shares its network).
+CATALOG_HIPS_MIRRORS = {"https://hipscat.cds.unistra.fr/HiPSCatService/": "https://axel.u-strasbg.fr/HiPSCatService/"}
+_host_checks: dict[str, tuple[float, bool]] = {}  # base URL -> (time, answered)
+HOST_CHECK_TTL = 900.0
+
+
+def _answers(base: str, probe_url: str, get) -> bool:
+    """Whether a catalogue HiPS host serves a properties file, checked at most every 15 min."""
+    import time
+    checked = _host_checks.get(base)
+    if checked is None or time.monotonic() - checked[0] > HOST_CHECK_TTL:
+        try:
+            ok = get(probe_url, timeout=5).status_code == 200
+        except Exception:  # a timeout or refused connection: the host is down from here
+            ok = False
+        checked = _host_checks[base] = (time.monotonic(), ok)
+    return checked[1]
+
+
+def _reachable(url: str, get) -> str:
+    """The catalogue's URL on a host that answers: the listed one, else its mirror."""
+    for base, mirror in CATALOG_HIPS_MIRRORS.items():
+        if url.startswith(base) and not _answers(base, url + "/properties", get):
+            alternative = mirror + url[len(base):]
+            if _answers(mirror, alternative + "/properties", get):
+                return alternative
+    return url
+
+
 def catalog_hips(region: dict, limit: int = 40, http=None) -> list[dict]:
     """Catalogue HiPS (progressive catalogues the map can draw straight from CDS) whose
     coverage overlaps the region, widest first: Gaia, 2MASS, AllWISE and the like, for
@@ -278,7 +309,10 @@ def catalog_hips(region: dict, limit: int = 40, http=None) -> list[dict]:
         out.append({"id": str(r["ID"]), "title": str(first(r.get("obs_title")) or r["ID"])[:120],
                     "url": url.rstrip("/"), "rows": rows, "sky_fraction": fraction})
     out.sort(key=lambda c: (-(c["sky_fraction"] or 0), -(c["rows"] or 0)))
-    return out[:limit]
+    out = out[:limit]
+    for catalog in out:
+        catalog["url"] = _reachable(catalog["url"], get)
+    return out
 
 
 # ── VizieR ───────────────────────────────────────────────────────────────────
