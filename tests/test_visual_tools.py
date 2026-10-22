@@ -152,9 +152,19 @@ class MapToolsTests(unittest.IsolatedAsyncioTestCase):
             {"type": "annotate", "shape": "circle", "ra": 0.0, "dec": 0.0, "radius": -1.0, "text": "c"},
             {"type": "annotate", "shape": "label", "ra": 0.0, "dec": 0.0, "text": " "},
             {"type": "layer.add", "id": "x", "table": "gaia", "label": "x", "style": {"color": "red"}},
+            {"type": "context.show", "id": "javascript:alert(1)"},
+            {"type": "context.show", "id": "CDS/I/355/gaiadr3", "color": "red"},
         ):
             with self.subTest(action=action), self.assertRaises(ValueError):
                 await self.call("update_map", {"actions": [action]})
+
+    async def test_context_catalogs_are_requested_like_other_actions(self):
+        result = await self.call("update_map", {"actions": [
+            {"type": "context.show", "id": "CDS/II/328/allwise", "color": "#9aa7ff"},
+            {"type": "context.hide", "id": "CDS/I/355/gaiadr3"}]})
+        payload = next(iter(result.update["artifacts"].values()))
+        self.assertEqual([a["type"] for a in payload["actions"]], ["context.show", "context.hide"])
+        self.assertEqual(payload["status"], "requested")
 
     async def test_describe_field_summarizes_and_finds_rows(self):
         overview = json.loads((await self.call("describe_field", {})).content)

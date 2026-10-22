@@ -338,7 +338,15 @@ pip install -e '.[kernel]'
 python -m scoop.server   # then ⚙ Settings → Analysis kernel: myenv
 ```
 
-See [`scoop/runtime/kernel.py`](scoop/runtime/kernel.py).
+With a kernel on, the agent can also save FITS cutouts of any HiPS image survey (CDS
+hips2fits, with their WCS; TAN, CAR and other projections) into the kernel's working
+directory for `run_kernel` to measure (`fits_cutout`). See [`scoop/runtime/kernel.py`](scoop/runtime/kernel.py).
+
+The Layers panel's **Context catalogs (CDS)** lists the catalogue HiPS covering the field
+(Gaia, 2MASS, AllWISE and many more, from the CDS MOC server); ticking one draws the
+whole catalogue on the map straight from CDS, for context. They are not part of the field:
+the agent knows they are display-only and can show or hide them, and the data agent adds
+one to the field when it needs analysing.
 
 Server options: `python -m scoop.server --help` (port, where fields, settings,
 conversations and the audit log live, and `--triage-every`). Developer mode (⚙ Settings)

@@ -101,6 +101,47 @@ describe('field workspace', () => {
     expect(workspace.canUndo).toBe(false);
   });
 
+  it('offers the catalogue HiPS covering the field as context layers the agent knows are display-only', async () => {
+    const { fake, requests } = backend([{ type: 'done' }]);
+    const asked: number[][] = [];
+    fake.listContextCatalogs = async (ra, dec, radius) => {
+      asked.push([ra, dec, radius]);
+      return [{ id: 'CDS/I/355/gaiadr3', title: 'Gaia DR3', url: 'https://hipscat.example/gaiadr3', rows: 1.8e9, sky_fraction: 1 },
+              { id: 'CDS/II/328/allwise', title: 'AllWISE', url: 'https://hipscat.example/allwise', rows: 7.5e8, sky_fraction: 1 }];
+    };
+    const workspace = createWorkspace(fake, { pollMs: 1 });
+    await workspace.connect();
+    await vi.waitFor(() => expect(workspace.field?.context_catalogs?.length).toBe(2));
+    const field = workspace.field!;
+    expect(asked).toEqual([[field.target.ra, field.target.dec, Math.min(30, Math.max(0.05, field.fov / 2))]]);
+
+    expect(workspace.request([{ type: 'context.show', id: 'CDS/I/9999/nope' }], 'user')).toMatch(/not available/);
+    expect(workspace.request([{ type: 'context.hide', id: 'CDS/I/355/gaiadr3' }], 'user')).toMatch(/not shown/);
+    expect(workspace.request([{ type: 'context.show', id: 'CDS/II/328/allwise' }], 'user')).toBeNull();
+    resolveAll(workspace);
+    expect(workspace.map.context).toEqual([{ id: 'CDS/II/328/allwise', title: 'AllWISE', url: 'https://hipscat.example/allwise',
+      color: expect.stringMatching(/^#[0-9a-f]{6}$/), origin: 'user' }]);
+
+    workspace.draft = 'what else is here?';
+    await workspace.send();
+    expect((requests[0].context as Record<string, any>).contextCatalogs).toEqual({
+      shown: [{ id: 'CDS/II/328/allwise', title: 'AllWISE' }],
+      available: [{ id: 'CDS/I/355/gaiadr3', title: 'Gaia DR3', rows: 1.8e9 }, { id: 'CDS/II/328/allwise', title: 'AllWISE', rows: 7.5e8 }] });
+
+    workspace.request([{ type: 'context.hide', id: 'CDS/II/328/allwise' }], 'user');
+    resolveAll(workspace);
+    expect(workspace.map.context).toEqual([]);
+  });
+
+  it('works as before when the server cannot list context catalogues', async () => {
+    const { fake } = backend();
+    fake.listContextCatalogs = async () => { throw new Error('MOC server down'); };
+    const workspace = createWorkspace(fake, { pollMs: 1 });
+    await workspace.connect();
+    expect(workspace.field?.key).toBe('mini_1');
+    expect(workspace.field?.context_catalogs).toBeUndefined();
+  });
+
   it('applies a batch all-or-nothing and fails it when the map is unavailable', async () => {
     const { workspace } = await ready();
     expect(workspace.request([{ type: 'annotations.clear' }, { type: 'select', table: 'gaia', id: 'invented' }], 'user')).toMatch(/unknown gaia ids/);

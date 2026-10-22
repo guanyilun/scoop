@@ -20,6 +20,14 @@
     return { property: property.replace(/_/g, ' '), label: bibcode ? `${who} ${bibcode.slice(0, 4)}` : ref, url: bibcode ? adsUrl(bibcode) : null };
   }));
   const surveys = $derived(field?.surveys ?? [[DEFAULT_SURVEY, 'DSS2 color']]);
+  // Whole catalogues from CDS covering the field, drawn for context (catalogue HiPS).
+  const contextCatalogs = $derived(field?.context_catalogs ?? []);
+  const shownContext = $derived(new Map((workspace.map.context ?? []).map((c) => [c.id, c])));
+  const rowCount = (n: number | null) => n === null ? '' : n >= 1e9 ? `${(n / 1e9).toPrecision(2)} B` : n >= 1e6
+    ? `${(n / 1e6).toPrecision(2)} M` : n >= 1e3 ? `${(n / 1e3).toPrecision(2)} k` : String(n);
+  function toggleContext(id: string, on: boolean) {
+    workspace.request([on ? { type: 'context.show', id } : { type: 'context.hide', id }], 'user');
+  }
   let runKey = $state('');
   let runError = $state('');
   async function run() { runError = (await workspace.runField(runKey)) ?? ''; if (!runError) runKey = ''; }
@@ -193,6 +201,21 @@
       {#each surveys as [id, name]}<option value={id}>{name}</option>{/each}
     </select>
   </div>
+
+  {#if contextCatalogs.length}
+    <details class="context-catalogs">
+      <summary class="eyebrow">CONTEXT CATALOGS (CDS) · {shownContext.size || contextCatalogs.length}</summary>
+      <p class="muted">Whole catalogues drawn from CDS to show what else is here. Not part of the field: to analyse one, ask for it to be added.</p>
+      {#each contextCatalogs.slice(0, 20) as catalog (catalog.id)}
+        {@const shown = shownContext.get(catalog.id)}
+        <label class="check" title={catalog.id}>
+          <input type="checkbox" checked={!!shown} onchange={(e) => toggleContext(catalog.id, e.currentTarget.checked)} />
+          {#if shown}<span class="swatch" style:background={shown.color}></span>{/if}
+          <span>{catalog.title}</span>{#if catalog.rows !== null}<small class="muted"> {rowCount(catalog.rows)}</small>{/if}
+        </label>
+      {/each}
+    </details>
+  {/if}
 
   <form class="run-field" onsubmit={(e) => { e.preventDefault(); run(); }}>
     <input bind:value={runKey} placeholder="Run an LVDB object, e.g. ursa_minor_1" aria-label="LVDB key to run" />

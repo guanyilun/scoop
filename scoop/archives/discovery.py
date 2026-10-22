@@ -247,6 +247,40 @@ def survey_inventory(region: dict, per_regime: int = 8, http=None) -> dict:
                             "services (e.g. MAST, CADC, HEASARC) for complete inventories"]}
 
 
+def catalog_hips(region: dict, limit: int = 40, http=None) -> list[dict]:
+    """Catalogue HiPS (progressive catalogues the map can draw straight from CDS) whose
+    coverage overlaps the region, widest first: Gaia, 2MASS, AllWISE and the like, for
+    context. Drawing one fetches nothing into the field; its rows stay at CDS."""
+    import requests
+    region = check_region(region)
+    get = http or requests.get
+    resp = get(MOCSERVER, params={"RA": region["ra"], "DEC": region["dec"], "SR": region["radius_deg"],
+                                  "fmt": "json", "get": "record", "dataproduct_type": "catalog",
+                                  "fields": "ID,obs_title,dataproduct_type,hips_service_url,nb_rows,moc_sky_fraction"},
+               timeout=TIMEOUT_S)
+    resp.raise_for_status()
+    first = lambda v: v[0] if isinstance(v, list) and v else v  # noqa: E731
+    out = []
+    for r in resp.json():
+        url = next((u for u in (r.get("hips_service_url") if isinstance(r.get("hips_service_url"), list)
+                                 else [r.get("hips_service_url")]) if isinstance(u, str) and u.startswith("https://")),
+                   None)
+        if first(r.get("dataproduct_type")) != "catalog" or not url or not r.get("ID"):
+            continue  # not a catalogue HiPS, or only served over http (the page is https)
+        try:
+            fraction = float(first(r.get("moc_sky_fraction")))
+        except (TypeError, ValueError):
+            fraction = None
+        try:
+            rows = int(first(r.get("nb_rows")))
+        except (TypeError, ValueError):
+            rows = None
+        out.append({"id": str(r["ID"]), "title": str(first(r.get("obs_title")) or r["ID"])[:120],
+                    "url": url.rstrip("/"), "rows": rows, "sky_fraction": fraction})
+    out.sort(key=lambda c: (-(c["sky_fraction"] or 0), -(c["rows"] or 0)))
+    return out[:limit]
+
+
 # ── VizieR ───────────────────────────────────────────────────────────────────
 
 def find_catalogs(keywords: str, limit: int = 15) -> list[dict]:
@@ -402,6 +436,6 @@ def query_service(url: str, table: str, region: dict, *, label: str, columns: li
                        rows=rows, limit=limit)
 
 
-__all__ = ["DiscoveryError", "build_adql", "check_public_url", "check_where", "describe_catalog",
+__all__ = ["DiscoveryError", "build_adql", "catalog_hips", "check_public_url", "check_where", "describe_catalog",
            "describe_service", "find_catalogs", "find_services", "json_value", "position_columns",
            "query_catalog", "query_service", "survey_inventory", "table_rows"]

@@ -70,7 +70,13 @@ export interface Field {
   decisions: string[];
   surveys: [string, string][];
   layers: Layer[];
+  // Catalogue HiPS covering the field (CDS MOC server), for context layers; fetched separately.
+  context_catalogs?: ContextCatalog[];
 }
+
+// A whole catalogue drawn from CDS for context (catalogue HiPS): display only, its rows stay at CDS.
+export interface ContextCatalog { id: string; title: string; url: string; rows: number | null; sky_fraction: number | null }
+export interface ContextLayer { id: string; title: string; url: string; color: string; origin: Origin }
 
 export interface Highlight { table: string; ids: string[]; reason: string | null; origin: Origin }
 export interface Annotation {
@@ -102,7 +108,9 @@ export type MapAction =
   | { type: 'annotations.clear' }
   | { type: 'select'; table: string; id: string }
   | ({ type: 'plot.show' } & PlotSpec)
-  | { type: 'plot.hide' };
+  | { type: 'plot.hide' }
+  | { type: 'context.show'; id: string; color?: string }
+  | { type: 'context.hide'; id: string };
 
 // A scatter (x, y) or histogram (x only) of one table, drawn with the map's layers.
 // A preset drawn from one table.
@@ -117,4 +125,5 @@ export interface MapState {
   annotations: Annotation[];
   selection: RowRef | null;
   plot?: PlotSpec | null;
+  context?: ContextLayer[];
 }
