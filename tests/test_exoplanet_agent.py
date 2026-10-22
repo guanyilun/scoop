@@ -17,7 +17,7 @@ except ModuleNotFoundError as exc:  # the light environment has no chat dependen
 
 from evaluation.exoplanets.evaluate import score
 from scoop.exoplanets.archive import ArchiveError
-from scoop.exoplanets.tools import GET_ABSTRACT, GET_PLANETS, exoplanet_tool
+from scoop.exoplanets.tools import GET_ABSTRACT_DESCRIPTION, GET_ABSTRACT_SCHEMA, GET_PLANETS, exoplanet_tool
 from tests.test_exoplanet_checks import PLANETS
 from tests.test_exoplanet_claims import ABSTRACT, QUOTE, TESKE
 
@@ -59,7 +59,7 @@ def ask(*args, **kwargs):
 
 
 def registry(abstract=lambda bibcode: ABSTRACT, planets=lambda hostname: {}) -> list:
-    return [exoplanet_tool(GET_ABSTRACT.name, GET_ABSTRACT.description, GET_ABSTRACT.args_schema, abstract),
+    return [exoplanet_tool("get_abstract", GET_ABSTRACT_DESCRIPTION, GET_ABSTRACT_SCHEMA, abstract),
             exoplanet_tool(GET_PLANETS.name, GET_PLANETS.description, GET_PLANETS.args_schema, planets)]
 
 

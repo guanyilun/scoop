@@ -6,7 +6,7 @@ arguments against the schema and turns the result into JSON text for the model. 
 provenance format of evaluation/checks.py (kind, archive, native_id, ra, dec,
 query, access_url, retrieved_at), so the team's checks can run on it.
 
-Services (checked live on 2026-10-19):
+Services (checked live on 2026-10-19; what their values mean: skill surveys/exoplanets_tess):
   - Sesame (CDS) name resolver, XML output
   - NASA Exoplanet Archive TAP, table pscomppars (one row per confirmed planet)
 
@@ -20,7 +20,10 @@ and replay them, so tests and offline examples run without the network:
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import json
+from functools import partial
 from typing import Any, Callable
 
 import jsonschema
@@ -29,7 +32,7 @@ from langchain_core.tools import StructuredTool, ToolException
 from .archive import MAX_RADIUS_ARCMIN, ArchiveError, exoplanet_cone_search, get_planets, resolve_target
 from .archive import toi_cone_search
 from .mast import hst_jwst_programs
-from .papers import find_papers, get_abstract
+from .papers import Published, find_papers, get_abstract
 from .tess import SHORT_CADENCE_DEFAULTS, extractable_light_curves, short_cadence_candidates
 
 
@@ -46,26 +49,48 @@ def format_result(result: Any, max_chars: int = MAX_OUTPUT_CHARS) -> str:
 
 
 def exoplanet_tool(name: str, description: str, input_schema: dict, fn: Callable[..., Any]) -> StructuredTool:
-    """`fn` as a tool the model may call. Every failure comes back to the model as an error
-    result it can read, never an exception: arguments that do not fit the schema, an
-    ArchiveError (its message, which says what to do), or any other bug."""
-    def run(**kwargs):
+    """`fn` (plain or async) as a tool the model may call. Every failure comes back to the
+    model as an error result it can read, never an exception: arguments that do not fit the
+    schema, an ArchiveError (its message, which says what to do), or any other bug. A
+    Published result gives the model its result and keeps the artifact on the tool message."""
+    def validate(kwargs):
         try:
             jsonschema.validate(kwargs, input_schema)
         except jsonschema.ValidationError as e:
             where = ".".join(str(p) for p in e.path) or "arguments"
             raise ToolException(f"Invalid arguments for {name} ({where}): {e.message}. "
                                 f"Expected: {json.dumps(input_schema.get('properties', {}))}")
+
+    def failed(exc: Exception) -> ToolException:
+        if isinstance(exc, ArchiveError):
+            return ToolException(str(exc))
+        return ToolException(f"{name} failed with {type(exc).__name__}: {exc}")
+
+    def output(result):
+        if isinstance(result, Published):
+            return format_result(result.result), result.artifact
+        return format_result(result), None
+
+    def run(**kwargs):
+        validate(kwargs)
         try:
             result = fn(**kwargs)
-        except ArchiveError as exc:
-            raise ToolException(str(exc)) from exc
+            if inspect.isawaitable(result):
+                result = asyncio.run(result)
         except Exception as exc:
-            raise ToolException(f"{name} failed with {type(exc).__name__}: {exc}") from exc
-        return format_result(result)
+            raise failed(exc) from exc
+        return output(result)
 
-    return StructuredTool(name=name, description=description, args_schema=input_schema, func=run,
-                          handle_tool_error=True)
+    async def arun(**kwargs):
+        validate(kwargs)
+        try:  # the archive functions block on HTTP: off the event loop
+            result = await (fn(**kwargs) if inspect.iscoroutinefunction(fn) else asyncio.to_thread(fn, **kwargs))
+        except Exception as exc:
+            raise failed(exc) from exc
+        return output(result)
+
+    return StructuredTool(name=name, description=description, args_schema=input_schema, func=run, coroutine=arun,
+                          handle_tool_error=True, response_format="content_and_artifact")
 
 
 RESOLVE_TARGET = exoplanet_tool(
@@ -125,9 +150,7 @@ GET_PLANETS = exoplanet_tool(
 )
 
 
-FIND_PAPERS = exoplanet_tool(
-    name="find_papers",
-    description=(
+FIND_PAPERS_DESCRIPTION = (
         "Search ADS (the astronomy literature) for papers, most relevant first: bibcode, "
         "title, first author, year, journal, citation count. Use it to find what has been "
         "published on a planet beyond its discovery paper, e.g. '\"TOI-561 b\" atmosphere'. "
@@ -136,31 +159,30 @@ FIND_PAPERS = exoplanet_tool(
         "('article'); news items ('newsitem'), proposals ('proposal') and abstracts are not "
         "results. The same paper can appear twice, as an arXiv preprint ('eprint') and as the "
         "journal version; prefer the journal version. Results are ordered by relevance, not "
-        "date: check the years and include recent papers."),
-    input_schema={
-        "type": "object",
-        "properties": {
-            "query": {"type": "string", "minLength": 1, "description": "ADS query"},
-            "rows": {"type": "integer", "minimum": 1, "maximum": 20,
-                     "description": "Number of papers (default 10)"},
-            "refereed_only": {"type": "boolean", "description": "Only refereed papers"}},
-        "required": ["query"], "additionalProperties": False},
-    fn=find_papers,
-)
+        "date: check the years and include recent papers.")
+FIND_PAPERS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "query": {"type": "string", "minLength": 1, "description": "ADS query"},
+        "rows": {"type": "integer", "minimum": 1, "maximum": 20,
+                 "description": "Number of papers (default 10)"},
+        "refereed_only": {"type": "boolean", "description": "Only refereed papers"}},
+    "required": ["query"], "additionalProperties": False}
+GET_ABSTRACT_DESCRIPTION = (
+    "Get one paper's title, authors and full abstract from ADS, by bibcode. Any claim "
+    "about what a paper found must quote this abstract word for word, so fetch it before "
+    "citing a paper. Use bibcodes returned by find_papers or get_planets.")
+GET_ABSTRACT_SCHEMA = {
+    "type": "object",
+    "properties": {"bibcode": {"type": "string", "minLength": 19, "maxLength": 19,
+                               "description": "ADS bibcode, e.g. 2017Natur.542..456G"}},
+    "required": ["bibcode"], "additionalProperties": False}
 
-GET_ABSTRACT = exoplanet_tool(
-    name="get_abstract",
-    description=(
-        "Get one paper's title, authors and full abstract from ADS, by bibcode. Any claim "
-        "about what a paper found must quote this abstract word for word, so fetch it before "
-        "citing a paper. Use bibcodes returned by find_papers or get_planets."),
-    input_schema={
-        "type": "object",
-        "properties": {"bibcode": {"type": "string", "minLength": 19, "maxLength": 19,
-                                   "description": "ADS bibcode, e.g. 2017Natur.542..456G"}},
-        "required": ["bibcode"], "additionalProperties": False},
-    fn=get_abstract,
-)
+
+def paper_tools(ads) -> list[StructuredTool]:
+    """find_papers and get_abstract on SCOOP's ADS client (None: they report ADS is off)."""
+    return [exoplanet_tool("find_papers", FIND_PAPERS_DESCRIPTION, FIND_PAPERS_SCHEMA, partial(find_papers, ads)),
+            exoplanet_tool("get_abstract", GET_ABSTRACT_DESCRIPTION, GET_ABSTRACT_SCHEMA, partial(get_abstract, ads))]
 
 
 def _cone_schema(**extra) -> dict:
@@ -244,7 +266,8 @@ def exoplanet_tools() -> list[StructuredTool]:
     return [RESOLVE_TARGET, EXOPLANET_CONE_SEARCH, GET_PLANETS]
 
 
-def agent_tools() -> list[StructuredTool]:
-    """Everything the fact-checked exoplanet agent uses: the archive, and the papers."""
-    return exoplanet_tools() + [TOI_CONE_SEARCH, HST_JWST_PROGRAMS, FIND_PAPERS, GET_ABSTRACT,
+def agent_tools(ads=None) -> list[StructuredTool]:
+    """Everything the fact-checked exoplanet agent uses: the archive, and the papers
+    (through `ads`, SCOOP's ADS client)."""
+    return exoplanet_tools() + [TOI_CONE_SEARCH, HST_JWST_PROGRAMS, *paper_tools(ads),
                                 EXTRACTABLE_LIGHT_CURVES, SHORT_CADENCE_CANDIDATES]

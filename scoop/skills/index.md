@@ -18,6 +18,7 @@ archive.
 |---|---|
 | [gaia](surveys/gaia.md) | Astrometry (positions, parallaxes, proper motions), G/BP/RP photometry, radial velocities, XP/RVS spectra, Gaia QSO and galaxy candidates |
 | [mast_hst_jwst](surveys/mast_hst_jwst.md) | HST and JWST images and spectra, footprints, epochs and baselines, exclusive-access and planned observations, Hubble Source Catalog, HAP mosaics, HLSPs |
+| [exoplanets_tess](surveys/exoplanets_tess.md) | Confirmed exoplanets (measured vs estimated masses), TESS TOIs, TIC stars and light-curve limits, HST/JWST exoplanet spectra; who answers what (draft) |
 | [cadc_cfht](surveys/cadc_cfht.md) | CFHT observations (MegaCam images etc.) at CADC, as footprints via ObsCore (draft) |
 | [act](surveys/act.md) | ACT maps (90/150/220 GHz) and ACT+Planck Compton-y: CDS quick-look copies vs the official DR6.02 LAMBDA files, NILC y-map variants (draft) |
 | [lamost](surveys/lamost.md) | LAMOST spectroscopic catalogs via VizieR, up to DR11 (draft) |
