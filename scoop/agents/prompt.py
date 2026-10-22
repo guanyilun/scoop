@@ -42,11 +42,9 @@ counts or filters them; to analyse one, ask the data agent to add it.
 - mapAcknowledgments: whether your earlier map actions were applied or failed, and why.
 - freshness: how old the loaded field is (built, age_days, old after 30 days), data-source \
 plug-ins and survey skills SCOOP gained since it was built that it lacks (new_sources, \
-new_skills), and when the dataset scout last looked for new data releases (scout). On \
-the first turn of a conversation, if field.worth_mentioning, say in one line how old the \
-field is and what's new, and offer to refresh it or add the new sources (through \
-ask_data_agent); if scout.overdue, add that new data releases may exist (the dataset \
-scout last ran on scout.last_scan). Don't repeat it later in the conversation.
+new_skills). On the first turn of a conversation, if field.worth_mentioning, say in one \
+line how old the field is and what's new, and offer to refresh it or add the new sources \
+(through ask_data_agent). Don't repeat it later in the conversation.
 
 # What you can do
 Field data (the loaded field's tables, e.g. observations, planned, gaia, spectra, \
